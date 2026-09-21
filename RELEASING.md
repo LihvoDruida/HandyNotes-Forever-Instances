@@ -62,16 +62,31 @@ Or let the release script push immediately:
 
 ## CurseForge configuration
 
-Repository variable:
+`CURSEFORGE_PROJECT_ID` may be stored either as a **repository secret** or a
+**repository variable**. The workflow checks the secret first and falls back to
+the variable. This means the current GitHub setup with both values under
+`Repository secrets` works without moving the project ID.
+
+Repository secrets:
+
+```text
+CURSEFORGE_PROJECT_ID=<project id>
+CF_API_KEY=<CurseForge token>
+```
+
+Alternatively, keep only `CF_API_KEY` as a secret and put the non-sensitive
+project ID under **Actions -> Variables**:
 
 ```text
 CURSEFORGE_PROJECT_ID=<project id>
 ```
 
-Repository secret:
+Resolution order used by the workflow:
 
 ```text
-CF_API_KEY=<CurseForge token>
+secrets.CURSEFORGE_PROJECT_ID
+        ↓ if empty
+vars.CURSEFORGE_PROJECT_ID
 ```
 
 The tag-triggered GitHub workflow uses `BigWigsMods/packager@v2` and `.pkgmeta`.

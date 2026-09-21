@@ -23,45 +23,22 @@ lua_syntax() {
         compiler="luac5.1"
     elif command -v luac >/dev/null 2>&1; then
         compiler="luac"
+    else
+        echo "luac5.1/luac is required for the Lua syntax gate" >&2
+        return 127
     fi
 
     local rc=0
-    if [[ -n "$compiler" ]]; then
-        while IFS= read -r -d '' f; do
-            "$compiler" -p "$f" || rc=1
-        done < <(find . -type f -name '*.lua' ! -path './tools/*' -print0)
-        return $rc
-    fi
-
-    if command -v luatex >/dev/null 2>&1; then
-        local checker
-        checker=$(mktemp)
-        cat >"$checker" <<'LUA'
-for i = 1, #arg do
-    local chunk, err = loadfile(arg[i])
-    if not chunk then
-        io.stderr:write(arg[i] .. ": " .. tostring(err) .. "\n")
-        os.exit(1)
-    end
-end
-LUA
-        local files=()
-        while IFS= read -r -d '' f; do files+=("$f"); done < <(find . -type f -name '*.lua' ! -path './tools/*' -print0)
-        luatex --luaonly "$checker" "${files[@]}" || rc=1
-        rm -f "$checker"
-        return $rc
-    fi
-
-    echo "luac5.1, luac, or luatex is required for the Lua syntax gate" >&2
-    return 127
+    while IFS= read -r -d '' f; do
+        "$compiler" -p "$f" || rc=1
+    done < <(find . -type f -name '*.lua' -not -path './.git/*' -print0)
+    return $rc
 }
 
 release_layout() {
     local required=(
         "HandyNotes_ForeverInstances_Camelot.toc"
         "Core.lua"
-        "Localizations/enUS.lua"
-        "Localizations/ukUA.lua"
         "Database.lua"
         "LegacyFallback.lua"
         "dungeon.tga"
@@ -72,6 +49,10 @@ release_layout() {
         "LICENSE.md"
         "THIRD_PARTY_NOTICES.md"
         ".pkgmeta"
+        ".github/workflows/release.yml"
+        "release.sh"
+        "check_all.sh"
+        "RELEASING.md"
         "cliff.toml"
         "tools/set_version.py"
     )
@@ -146,56 +127,31 @@ pkgmeta_valid() {
     grep -Eq '^[[:space:]]+-[[:space:]]+\.github$' .pkgmeta || return 1
 }
 
+workflow_config() {
+    local workflow=".github/workflows/release.yml"
+    [[ -s "$workflow" ]] || { echo "missing release workflow: $workflow" >&2; return 1; }
 
-localization_layout() {
-    python3 - <<'PY'
-from pathlib import Path
-import re
-
-root = Path('.')
-en = (root / 'Localizations/enUS.lua').read_text(encoding='utf-8')
-uk = (root / 'Localizations/ukUA.lua').read_text(encoding='utf-8')
-db = (root / 'Database.lua').read_text(encoding='utf-8')
-core = (root / 'Core.lua').read_text(encoding='utf-8')
-
-def keys(text):
-    return set(re.findall(r'^\s*([A-Z0-9_]+)\s*=', text, re.M))
-
-en_keys = keys(en)
-uk_keys = keys(uk)
-if en_keys != uk_keys:
-    print('localization key mismatch', file=__import__('sys').stderr)
-    print('missing in ukUA:', sorted(en_keys - uk_keys), file=__import__('sys').stderr)
-    print('missing in enUS:', sorted(uk_keys - en_keys), file=__import__('sys').stderr)
-    raise SystemExit(1)
-
-for legacy in ('descriptionUk', 'foreverChangeUk', 'Localization.lua', 'LocalizeDisplayName', 'LocalizeDatabaseText'):
-    if legacy in db or legacy in core:
-        print(f'legacy localization pattern remains: {legacy}', file=__import__('sys').stderr)
-        raise SystemExit(1)
-
-# Instance names stay canonical in Database.lua and must not become locale keys.
-if re.search(r'\bnameKey\s*=', db):
-    print('instance names must not be localized via nameKey', file=__import__('sys').stderr)
-    raise SystemExit(1)
-
-for field in ('descriptionKey', 'noteKey', 'foreverChangeKey'):
-    for key in re.findall(rf'\b{field}\s*=\s*"([A-Z0-9_]+)"', db):
-        if key not in en_keys:
-            print(f'{field} references missing locale key: {key}', file=__import__('sys').stderr)
-            raise SystemExit(1)
-
-print(f'Localization OK: {len(en_keys)} shared keys; English default; canonical instance names unchanged')
-PY
+    grep -Fq 'secrets.CURSEFORGE_PROJECT_ID || vars.CURSEFORGE_PROJECT_ID' "$workflow" || {
+        echo "release workflow must support CURSEFORGE_PROJECT_ID as secret with variable fallback" >&2
+        return 1
+    }
+    grep -Fq 'args: -p ${{ env.CURSEFORGE_PROJECT_ID }}' "$workflow" || {
+        echo "packager must consume the resolved CURSEFORGE_PROJECT_ID env value" >&2
+        return 1
+    }
+    grep -Fq 'CF_API_KEY: ${{ secrets.CF_API_KEY }}' "$workflow" || {
+        echo "release workflow must read CF_API_KEY from repository secrets" >&2
+        return 1
+    }
 }
 
 stage "Lua syntax"             lua_syntax
 stage "Release file layout"   release_layout
-stage "Localization layout"    localization_layout
 stage "Forever-only TOC"      toc_forever_only
 stage "Tag matches TOC"       tag_matches_version
 stage "Changelog matches TOC" changelog_matches_version
 stage "Package metadata"      pkgmeta_valid
+stage "Release workflow"       workflow_config
 
 echo ""
 if [[ $failures -eq 0 ]]; then

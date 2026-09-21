@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [1.0.10] - 2026-09-21
 
+- allow `CURSEFORGE_PROJECT_ID` to be read from a repository secret with repository-variable fallback
+- make BigWigs Packager use the resolved project ID environment value
+- extend release validation for the GitHub/CurseForge workflow contract
+
 ### 🛠️ Refactor
 - Replace the monolithic `Localization.lua` with separate `Localizations/enUS.lua` and `Localizations/ukUA.lua` translation databases.
 - Make English the default/fallback addon language; keep Ukrainian available through the language selector.

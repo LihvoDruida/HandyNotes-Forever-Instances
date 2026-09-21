@@ -42,3 +42,11 @@
 - BigWigs Packager metadata.
 
 All validation stages pass for v1.0.10.
+
+## GitHub / CurseForge workflow compatibility
+
+- `CURSEFORGE_PROJECT_ID` is resolved from `secrets.CURSEFORGE_PROJECT_ID` first.
+- If that secret is absent, the workflow falls back to `vars.CURSEFORGE_PROJECT_ID`.
+- `CF_API_KEY` remains a repository secret.
+- BigWigs Packager receives the already-resolved project ID through the workflow environment.
+- `check_all.sh` now guards this workflow contract against regressions.
