@@ -34,6 +34,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y lua5.1
 
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Apply requested release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/set_version.py "$GITHUB_REF_NAME"
+
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! grep -Fq "## [$VERSION]" CHANGELOG.md; then
+            echo "Generating CHANGELOG.md for $GITHUB_REF_NAME from the current tag..."
+            git-cliff --current --prepend CHANGELOG.md
+          else
+            echo "CHANGELOG.md already contains release section $VERSION"
+          fi
+
       - name: Validate CurseForge configuration
         shell: bash
         run: |

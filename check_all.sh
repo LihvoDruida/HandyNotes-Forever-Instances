@@ -84,8 +84,9 @@ toc_forever_only() {
     [[ "$(basename "$(find . -maxdepth 1 -name '*.toc' -print -quit)")" == "HandyNotes_ForeverInstances_Camelot.toc" ]]
 }
 
-tag_matches_version() {
-    # Local validation without a release tag is allowed. release.sh and CI set GITHUB_REF_NAME.
+release_version_applied() {
+    # Local validation without a requested release version is allowed.
+    # In CI the workflow rewrites the TOC from GITHUB_REF_NAME before this gate.
     local tag="${GITHUB_REF_NAME:-}"
     [[ -z "$tag" ]] && return 0
 
@@ -147,12 +148,20 @@ workflow_config() {
         echo "release workflow must invoke check_all.sh through bash so CI does not depend on executable file mode" >&2
         return 1
     }
+    grep -Fq 'python3 tools/set_version.py "$GITHUB_REF_NAME"' "$workflow" || {
+        echo "release workflow must rewrite the TOC version from the requested tag before validation" >&2
+        return 1
+    }
+    grep -Fq 'git-cliff --current --prepend CHANGELOG.md' "$workflow" || {
+        echo "release workflow must generate the current tag changelog when the release section is missing" >&2
+        return 1
+    }
 }
 
 stage "Lua syntax"             lua_syntax
 stage "Release file layout"   release_layout
 stage "Forever-only TOC"      toc_forever_only
-stage "Tag matches TOC"       tag_matches_version
+stage "Release version applied" release_version_applied
 stage "Changelog matches TOC" changelog_matches_version
 stage "Package metadata"      pkgmeta_valid
 stage "Release workflow"       workflow_config

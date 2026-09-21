@@ -118,3 +118,22 @@ git update-index --chmod=+x check_all.sh release.sh
 ```
 
 but it is no longer required for CI.
+
+## Release version is authoritative
+
+The version supplied to the release is the source of truth. The existing `## Version` value in the TOC does not decide the release version.
+
+Examples:
+
+```bash
+./release.sh 1.0
+./release.sh 1.0.10 --push
+```
+
+For a tag-triggered GitHub Actions release, a tag such as `v1.0` causes the workflow to rewrite the TOC to:
+
+```toc
+## Version: v1.0
+```
+
+Before packaging, the workflow also ensures `CHANGELOG.md` contains the section for that tag. If it is missing, `git-cliff --current` generates it from the commits belonging to the current tag.

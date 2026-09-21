@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Prepare and optionally publish a release in the same style as Max_Camera_Distance.
 #
-#   ./release.sh 1.0.7
-#   ./release.sh v1.0.7 --push
+#   ./release.sh 1.0
+#   ./release.sh v1.0.10 --push
 #
 # The script:
 #   1. validates the repository state;
@@ -16,7 +16,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() {
-    echo "Usage: $0 <X.Y.Z|vX.Y.Z> [--push]" >&2
+    echo "Usage: $0 <N.N[.N...]|vN.N[.N...]> [--push]" >&2
     exit 2
 }
 
@@ -29,11 +29,11 @@ elif [[ $# -eq 2 ]]; then
     usage
 fi
 
-if [[ "$RAW_VERSION" =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+if [[ "$RAW_VERSION" =~ ^v?([0-9]+(\.[0-9]+)+)$ ]]; then
     VERSION="${BASH_REMATCH[1]}"
     TAG="v${VERSION}"
 else
-    echo "Invalid version: $RAW_VERSION (expected X.Y.Z or vX.Y.Z)" >&2
+    echo "Invalid version: $RAW_VERSION (expected a dotted numeric version such as 1.0, v1.0, 1.0.10)" >&2
     exit 2
 fi
 

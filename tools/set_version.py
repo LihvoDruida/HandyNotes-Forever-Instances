@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Set or validate the addon release version.
 
-The Camelot TOC is the single source of truth for the packaged addon version.
+The requested release version is the source of truth. The Camelot TOC is rewritten to match it before packaging.
 
 Usage:
-  python3 tools/set_version.py 1.0.7
-  python3 tools/set_version.py v1.0.7
-  python3 tools/set_version.py --check v1.0.7
+  python3 tools/set_version.py 1.0
+  python3 tools/set_version.py v1.0
+  python3 tools/set_version.py 1.0.10
+  python3 tools/set_version.py --check v1.0
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 TOC = ROOT / "HandyNotes_ForeverInstances_Camelot.toc"
-VERSION_RE = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+)+)$")
 TOC_VERSION_RE = re.compile(r"^## Version:\s*(.+?)\s*$", re.MULTILINE)
 
 
@@ -26,8 +27,8 @@ def normalize(raw: str) -> tuple[str, str]:
     value = raw.strip()
     match = VERSION_RE.fullmatch(value)
     if not match:
-        raise ValueError(f"invalid release version: {raw!r}; expected X.Y.Z or vX.Y.Z")
-    plain = ".".join(match.groups())
+        raise ValueError(f"invalid release version: {raw!r}; expected a dotted numeric version such as 1.0, v1.0, 1.0.10")
+    plain = match.group(1)
     return plain, f"v{plain}"
 
 

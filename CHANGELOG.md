@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### 🐛 Bug Fixes
+- Make the requested release/tag version authoritative and rewrite the TOC before CI validation and packaging.
+- Support two-part versions such as `v1.0` in addition to three-part versions such as `v1.0.10`.
+- Generate the current-tag changelog in CI when the requested release section is not already present.
+
 ## [1.0.10] - 2026-09-21
 
 - allow `CURSEFORGE_PROJECT_ID` to be read from a repository secret with repository-variable fallback

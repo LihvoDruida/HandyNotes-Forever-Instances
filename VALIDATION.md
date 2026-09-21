@@ -50,3 +50,11 @@ All validation stages pass for v1.0.10.
 - `CF_API_KEY` remains a repository secret.
 - BigWigs Packager receives the already-resolved project ID through the workflow environment.
 - `check_all.sh` now guards this workflow contract against regressions.
+
+## Release-version authority
+
+- The version supplied by the release tag is authoritative.
+- CI rewrites `## Version` in `HandyNotes_ForeverInstances_Camelot.toc` from `GITHUB_REF_NAME` before validation and packaging.
+- Two-part versions such as `v1.0` and multi-part versions such as `v1.0.10` are accepted.
+- If the matching changelog section is absent, CI generates it from the current tag with `git-cliff --current --prepend CHANGELOG.md`.
+- The pre-release gate validates the rewritten version instead of requiring the repository TOC value to match the tag before preparation.
