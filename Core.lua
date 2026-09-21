@@ -36,7 +36,7 @@ local defaults = {
         continentAlpha = 0.95,
         showOnContinent = true,
         showOnAzeroth = true,
-        language = "auto",
+        language = "enUS",
         tomtom = true,
         show = {
             Dungeon = true,
@@ -62,49 +62,32 @@ local initialized = false
 local waypointHandles = {}
 
 local function activeLanguage()
-    local preference = db and db.language or "auto"
-    if ns.ResolveLanguage then
-        return ns.ResolveLanguage(preference)
+    if db and db.language == "ukUA" then
+        return "ukUA"
     end
     return "enUS"
 end
 
 local function L(key, ...)
-    local text = ns.GetLocalizedText and ns.GetLocalizedText(key, activeLanguage()) or key
+    local locales = ns.Locales or {}
+    local english = locales.enUS or {}
+    local bucket = locales[activeLanguage()] or english
+    local text = bucket[key] or english[key] or key
+
     if select("#", ...) > 0 then
         return string.format(text, ...)
     end
     return text
 end
 
-local function localizedDatabaseText(value)
-    if ns.LocalizeDatabaseText then
-        return ns.LocalizeDatabaseText(value, activeLanguage())
-    end
-    return value
-end
-
-local function localizedDisplayName(value)
-    if ns.LocalizeDisplayName then
-        return ns.LocalizeDisplayName(value, activeLanguage())
-    end
-    return value
-end
-
 local function localizedDescription(instance)
-    if not instance then return nil end
-    if activeLanguage() == "ukUA" and type(instance.descriptionUk) == "string" and instance.descriptionUk ~= "" then
-        return instance.descriptionUk
-    end
-    return instance.description
+    if not instance or type(instance.descriptionKey) ~= "string" then return nil end
+    return L(instance.descriptionKey)
 end
 
 local function localizedForeverChange(instance)
-    if not instance then return nil end
-    if activeLanguage() == "ukUA" and type(instance.foreverChangeUk) == "string" and instance.foreverChangeUk ~= "" then
-        return instance.foreverChangeUk
-    end
-    return instance.foreverChange
+    if not instance or type(instance.foreverChangeKey) ~= "string" then return nil end
+    return L(instance.foreverChangeKey)
 end
 
 local function provenanceLabel(instance)
@@ -838,15 +821,15 @@ function pluginHandler:OnEnter(uiMapID, coord)
                 tooltip:AddLine(L("WINGS"), 0.88, 0.78, 0.52)
                 for _, wing in ipairs(sortedWings(instance.wings)) do
                     local wingName = wing.name or wing.fullName or L("WING")
-                    local line = "  " .. localizedDisplayName(wingName)
+                    local line = "  " .. wingName
                     local wingLevels = levelText(wing)
                     if wingLevels then line = line .. "  [" .. wingLevels .. "]" end
                     tooltip:AddLine(line, 0.78, 0.78, 0.78)
                 end
             end
 
-            if db.showNotes and instance.note then
-                tooltip:AddLine(localizedDatabaseText(trim(instance.note)), 0.65, 0.65, 0.65, true)
+            if db.showNotes and type(instance.noteKey) == "string" then
+                tooltip:AddLine(L(instance.noteKey), 0.65, 0.65, 0.65, true)
             end
         end
     end
@@ -914,11 +897,9 @@ local function notifyUpdate()
 end
 
 local function languageValues()
-    local clientLocale = ns.GetClientLocaleCode and ns.GetClientLocaleCode() or "enUS"
     return {
-        auto = L("LANGUAGE_AUTO", clientLocale),
-        ukUA = L("LANGUAGE_UKRAINIAN"),
         enUS = L("LANGUAGE_ENGLISH"),
+        ukUA = L("LANGUAGE_UKRAINIAN"),
     }
 end
 
@@ -944,7 +925,7 @@ local function makeOptions()
                 desc = function() return L("LANGUAGE_DESC") end,
                 values = languageValues,
                 order = 2,
-                get = function() return db.language or "auto" end,
+                get = function() return db.language == "ukUA" and "ukUA" or "enUS" end,
                 set = function(_, value)
                     db.language = value
                     notifyUpdate()
@@ -1022,6 +1003,12 @@ local function initialize()
 
     local aceDB = AceDB:New("HandyNotes_ForeverInstancesDB", defaults, true)
     db = aceDB.profile
+
+    -- v1.0.10 localization migration: only explicit language databases are
+    -- supported. Existing "auto" profiles migrate to English, the default.
+    if db.language ~= "ukUA" and db.language ~= "enUS" then
+        db.language = "enUS"
+    end
 
     HandyNotes:RegisterPluginDB(PLUGIN_NAME, pluginHandler, makeOptions())
     notifyUpdate()

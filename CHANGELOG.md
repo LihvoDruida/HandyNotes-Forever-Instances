@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.10] - 2026-09-21
+
+### 🛠️ Refactor
+- Replace the monolithic `Localization.lua` with separate `Localizations/enUS.lua` and `Localizations/ukUA.lua` translation databases.
+- Make English the default/fallback addon language; keep Ukrainian available through the language selector.
+- Move instance descriptions, notes, and Forever-change text out of `Database.lua` and reference them only through localization keys.
+- Remove scattered `descriptionUk` / `foreverChangeUk` fields and English-to-Ukrainian lookup tables.
+- Keep dungeon, raid, and wing names canonical and untranslated in every language.
+- Add release validation for locale-key parity, missing localization references, and accidental instance-name localization.
+
 ## [1.0.9] - 2026-09-21
 
 ### 🚀 New Features

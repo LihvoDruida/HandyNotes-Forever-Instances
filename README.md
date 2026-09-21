@@ -40,21 +40,19 @@ with the supplied `WoWForeverInstances.lua` database.
 
 ## Localization
 
-The addon includes a runtime language selector with three modes:
+The addon uses two explicit language databases:
 
-- **Auto** — default; follows the WoW client locale.
-- **Українська** — forces Ukrainian.
-- **English** — forces English.
+- **English** — default and fallback language.
+- **Українська** — selectable from the HandyNotes plugin settings.
 
-When Auto is selected, a client reporting `ukUA` uses Ukrainian automatically.
-Other currently unsupported client locales fall back to English. The language can be
-overridden at any time from the HandyNotes plugin settings.
+All addon-generated strings, instance descriptions, database notes, and Forever
+change summaries are referenced by localization keys. The translations live only in
+`Localizations/enUS.lua` and `Localizations/ukUA.lua`.
 
-Localized content includes settings, filters, tooltip labels, player counts,
-coordinate labels, TomTom instructions, wing labels, and database notes. Zone names
-are read from the current client through `C_Map` where possible, so they follow the
-client's own localization. Canonical dungeon and raid names remain the names stored
-in the database.
+**Dungeon, raid, and wing names are not translated.** Their canonical names remain
+in `Database.lua` and are displayed exactly as stored there. Zone names are read
+from `C_Map` when available, so the game client can still provide its own localized
+zone names.
 
 ## Data merge rules
 
@@ -114,10 +112,26 @@ At build time, the only unresolved records remain:
 
 They stay unresolved because no verified coordinates were available and the legacy base addon did not contain matching records.
 
+
+## Localization architecture
+
+All addon-generated text is centralized through localization keys. The translation
+databases are stored separately:
+
+- `Localizations/enUS.lua` — English, loaded first and used as the fallback/default.
+- `Localizations/ukUA.lua` — Ukrainian.
+
+`Database.lua` stores only localization keys for descriptions, notes, and Forever
+change text (`descriptionKey`, `noteKey`, `foreverChangeKey`). It no longer stores
+parallel English/Ukrainian prose fields.
+
+**Dungeon and raid names are not translated.** Canonical instance names and wing
+names remain in `Database.lua` and are shown exactly as stored there.
+
 ## Files included
 
 - `HandyNotes_ForeverInstances_Camelot.toc`
-- `Localization.lua`
+- `Localizations/enUS.lua` and `Localizations/ukUA.lua`
 - `Database.lua`
 - `LegacyFallback.lua`
 - `Core.lua`

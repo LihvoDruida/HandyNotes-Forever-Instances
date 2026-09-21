@@ -25,7 +25,8 @@ This version was rebuilt from the supplied classic HandyNotes dungeon addon and 
 
 ### Features
 
-- **Ukrainian / English localization** with Auto mode based on the WoW client locale
+- English / Ukrainian language switcher (English by default)
+
 - Dungeon and raid entrance markers
 - World map, continent map, and minimap support
 - Optional **TomTom** right-click waypoints
@@ -63,9 +64,9 @@ This makes new Forever dungeon content easy to distinguish at a glance without c
 
 ### Localization
 
-The addon includes **Auto / Українська / English** language modes. Auto is the default and follows the WoW client locale. A `ukUA` client automatically uses Ukrainian; unsupported locales fall back to English.
+The addon includes an **English / Українська** language switcher. **English is the default and fallback language.**
 
-Settings, tooltip labels, filters, coordinates, player counts, TomTom instructions, wing labels, and database notes are localized. Zone names use the current client map localization when available.
+Settings, tooltip labels, filters, coordinates, player counts, descriptions, Forever-change summaries, TomTom instructions, and database notes use centralized localization keys. Dungeon, raid, and wing names remain canonical and are **not translated**. Zone names use the current client map localization when available.
 
 ### Classic + Forever status labels
 

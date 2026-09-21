@@ -1,68 +1,44 @@
-# Validation report — v1.0.9
+# Validation report — v1.0.10
 
-Data checks for this update:
+## Localization architecture
+
+- `Localizations/enUS.lua` is the default/fallback English database.
+- `Localizations/ukUA.lua` is the Ukrainian database.
+- Both files contain the same localization-key set.
+- `Database.lua` stores `descriptionKey`, `noteKey`, and `foreverChangeKey` instead of duplicated translated prose.
+- No `descriptionUk`, `foreverChangeUk`, English→Ukrainian lookup tables, or monolithic `Localization.lua` remain.
+- Dungeon, raid, and wing names remain canonical and are not localized.
+- Existing saved `language = "auto"` values migrate to `enUS`.
+- The language selector now exposes only `English` and `Українська`.
+
+## Data integrity
 
 - 28 dungeon records and 9 raid records remain in the map database.
-- All 37 instance records now have English and Ukrainian descriptions.
-- 9 dungeons and 2 raids are marked as Forever-new.
-- All 19 Classic-origin dungeons are marked `Classic • Forever • Updated` because the current Forever dungeon guidance confirms boss-loot reworks across old and new dungeons.
-- Molten Core and Onyxia's Lair carry explicit confirmed Forever progression changes.
-- The other 5 Classic-origin raids are marked `Classic • Forever` without inventing unconfirmed encounter changes.
-- Boss counts are populated for 32 records where a current count is published.
-- Barrow Deeps stores 8 boss/objective names and Hyjal Summit stores 13 from the current Legacy raid objectives.
-- Future unnamed roadmap raids are intentionally excluded from map nodes until their identity/location is published.
-- Database schema version: 2.
+- All 37 instance descriptions are represented by localization keys in both language databases.
+- 16 database notes are represented by localization keys in both language databases.
+- 2 explicit Forever-change summaries are represented by localization keys in both language databases.
+- 9 dungeons and 2 raids remain marked as Forever-new.
+- Missing coordinates remain limited to Barrow Deeps and Hyjal Summit; no coordinates are invented.
 
-## Previous validation notes
+## Map/runtime behavior
 
-# Release pipeline validation — 1.0.8
+- Zone, continent, minimap, and Azeroth/global-map rendering logic is unchanged by the localization refactor.
+- Azeroth/global pins continue to use explicit `C_Map.GetMapRectOnMap()` projection.
+- TomTom waypoints created from global-map pins continue to use original zone coordinates.
+- Portal icon routing remains: green raids, blue existing dungeons, blue-orange Forever-new dungeons.
 
-- `.pkgmeta` follows the BigWigs Packager structure used by Max Camera Distance.
-- `.github/workflows/release.yml` triggers only for `v*` tags.
-- GitHub workflow validates `CURSEFORGE_PROJECT_ID` and `CF_API_KEY` before publishing.
-- GitHub workflow has `contents: write` for GitHub release creation.
-- `check_all.sh` validates Lua syntax, the Forever-only Camelot TOC, package layout, `.pkgmeta`, and tag/version consistency.
-- `release.sh` supports local BigWigs packaging and CurseForge upload without hard-coding credentials.
-- Repository-only release files are excluded from the player package via `.pkgmeta`.
+## Release validation
 
-# Validation report
+`check_all.sh` now verifies:
 
-Localization runtime checks:
+- Lua syntax recursively, including files under `Localizations/`.
+- required Forever-only release layout;
+- identical English/Ukrainian locale-key sets;
+- every database localization key exists in the locale databases;
+- legacy scattered localization fields are absent;
+- no `nameKey` localization is introduced for instance names;
+- Camelot-only TOC/interface constraints;
+- TOC/tag/changelog version consistency;
+- BigWigs Packager metadata.
 
-- `Localization.lua` parses successfully.
-- Auto language resolves `ukUA` to Ukrainian and unsupported locales to English.
-- Manual Ukrainian/English overrides resolve independently of the client locale.
-- Ukrainian UI keys and translated database notes were exercised in a Lua runtime smoke test.
-
-Build-time checks completed for 1.0.8:
-
-- Lua syntax: `Localization.lua`, `Database.lua`, `LegacyFallback.lua`, and `Core.lua` parse successfully with LuaTeX.
-- Database count: 28 dungeons and 9 raids.
-- Forever-new count: 9 dungeons and 2 raids.
-- Missing coordinates remain limited to 2 records:
-  - Barrow Deeps — Mount Hyjal.
-  - Hyjal Summit — Mount Hyjal.
-- No fallback coordinates are invented for unresolved records.
-- Standard dungeon icon: `dungeon.tga` (blue portal).
-- Standard raid icon: `raid.tga` (green portal).
-- Forever-new dungeon icon: `forever_dungeon.tga` (blue-orange portal).
-- Addon metadata icon: `icon.tga` with transparent background.
-- Packaging contains only the Forever `_Camelot.toc` flavor file.
-- Continent maps still use HandyNotes child-map handling.
-- Azeroth/global map uses dedicated native projection through `C_Map.GetMapRectOnMap()`.
-- Direct source-map -> Azeroth projection is attempted first.
-- If a map does not expose a direct rectangle, projection walks its parent chain one map at a time.
-- Projected coordinates are rejected when they fall outside normalized `0..1` map bounds.
-- Global-map pins retain the original source map and source coordinate.
-- Tooltips continue to resolve the original instance records.
-- TomTom waypoints created from global-map pins use the original zone coordinates, never the projected Azeroth display coordinate.
-- `showOnAzeroth = true` by default and remains independently configurable from continent visibility.
-- `LICENSE.md` and `THIRD_PARTY_NOTICES.md` are present in the package.
-
-## Release automation validation (1.0.7)
-
-- `cliff.toml` mirrors the conventional-commit grouping used by Max Camera Distance.
-- `tools/set_version.py` is the single deterministic version writer/checker for the Camelot TOC.
-- `release.sh` now performs version bump -> changelog generation -> validation -> release commit -> annotated tag.
-- `check_all.sh` verifies the current TOC version has a matching `CHANGELOG.md` release section.
-- The tag-triggered GitHub Action is publish-only; release metadata is prepared and committed before the tag is pushed.
+All validation stages pass for v1.0.10.
