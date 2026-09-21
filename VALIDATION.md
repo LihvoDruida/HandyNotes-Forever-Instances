@@ -58,3 +58,5 @@ All validation stages pass for v1.0.10.
 - Two-part versions such as `v1.0` and multi-part versions such as `v1.0.10` are accepted.
 - If the matching changelog section is absent, CI generates it from the current tag with `git-cliff --current --prepend CHANGELOG.md`.
 - The pre-release gate validates the rewritten version instead of requiring the repository TOC value to match the tag before preparation.
+
+- Release workflow changelog generation uses `git-cliff --current --latest --prepend CHANGELOG.md`, avoiding the git-cliff 2.14.x prepend argument error while still selecting the checked-out tag.

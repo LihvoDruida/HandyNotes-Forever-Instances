@@ -16,9 +16,6 @@ ignore:
   - .release
   - release.sh
   - check_all.sh
-  - RELEASING.md
-  - cliff.toml
-  - tools
   - curseforge-icon.png
   - icon.png
   - .DS_Store

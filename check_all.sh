@@ -152,8 +152,8 @@ workflow_config() {
         echo "release workflow must rewrite the TOC version from the requested tag before validation" >&2
         return 1
     }
-    grep -Fq 'git-cliff --current --prepend CHANGELOG.md' "$workflow" || {
-        echo "release workflow must generate the current tag changelog when the release section is missing" >&2
+    grep -Fq 'git-cliff --current --latest --prepend CHANGELOG.md' "$workflow" || {
+        echo "release workflow must generate the current tag changelog with --latest compatibility for --prepend" >&2
         return 1
     }
 }

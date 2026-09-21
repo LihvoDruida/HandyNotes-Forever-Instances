@@ -136,4 +136,16 @@ For a tag-triggered GitHub Actions release, a tag such as `v1.0` causes the work
 ## Version: v1.0
 ```
 
-Before packaging, the workflow also ensures `CHANGELOG.md` contains the section for that tag. If it is missing, `git-cliff --current` generates it from the commits belonging to the current tag.
+Before packaging, the workflow also ensures `CHANGELOG.md` contains the section for that tag. If it is missing, `git-cliff --current --latest --prepend CHANGELOG.md` generates it from the commits belonging to the current tag while satisfying git-cliff's prepend-mode requirement.
+
+## CI changelog generation
+
+When a release tag is already checked out in GitHub Actions, the workflow uses:
+
+```bash
+git-cliff --current --latest --prepend CHANGELOG.md
+```
+
+`--current` selects the commits belonging to the checked-out release tag.
+`--latest` is also supplied because git-cliff requires `--latest`, `--unreleased`, or an explicit range when `--prepend` is used. Without it, git-cliff 2.14.x exits with `ArgumentError("'-u' or '-l' is not specified")`.
+

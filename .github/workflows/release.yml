@@ -48,7 +48,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           if ! grep -Fq "## [$VERSION]" CHANGELOG.md; then
             echo "Generating CHANGELOG.md for $GITHUB_REF_NAME from the current tag..."
-            git-cliff --current --prepend CHANGELOG.md
+            git-cliff --current --latest --prepend CHANGELOG.md
           else
             echo "CHANGELOG.md already contains release section $VERSION"
           fi
