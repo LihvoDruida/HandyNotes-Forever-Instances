@@ -1,0 +1,71 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [1.0.7] - 2026-09-21
+
+### ⚙️ Miscellaneous Tasks
+- Port the Max Camera Distance release preparation flow: centralized version bump, git-cliff changelog generation, conventional release commit and annotated tag.
+- Add `cliff.toml` and `tools/set_version.py`.
+- Make `release.sh` generate release notes before triggering the existing CurseForge publish pipeline.
+
+# 1.0.6
+
+- Ported the CurseForge release pipeline from Max Camera Distance.
+- Added BigWigs Packager configuration through `.pkgmeta`.
+- Added tag-triggered GitHub Actions publishing for `v*` releases.
+- Added strict pre-release validation for Lua syntax, Forever-only TOC layout, required release files, package metadata, and tag/version consistency.
+- Added local `release.sh` wrapper for packaging and CurseForge upload.
+- CurseForge project ID is supplied through the `CURSEFORGE_PROJECT_ID` repository variable instead of being hard-coded into the addon.
+- CurseForge API authentication uses the `CF_API_KEY` repository secret, with both current packager token environment names populated for compatibility.
+- Added `RELEASING.md` with release and repository-setup instructions.
+
+# 1.0.5
+
+- Fixed incorrect instance-marker placement on the Azeroth/global map.
+- Global-map positions are now calculated explicitly with `C_Map.GetMapRectOnMap()` instead of relying on generic zone-to-world translation.
+- Added recursive parent-map projection fallback for maps that do not expose a direct rectangle to Azeroth.
+- Global-map tooltip/click handling now resolves projected pins back to their original zone records.
+- TomTom waypoints created from the Azeroth map now use the original zone coordinates instead of projected display coordinates.
+- Restored license/third-party notice files that were accidentally omitted from the 1.0.4 package.
+
+# 1.0.4
+
+- Fixed global Azeroth-map behavior by separating it from continent-map visibility.
+- Added a dedicated `Show on Azeroth / global map` toggle.
+- Global-map markers remain available by default and can be disabled independently if the map becomes too busy.
+- `Show on continent maps` continues to control continent behavior only.
+
+# 1.0.2
+
+- Added a dedicated transparent addon icon based on the supplied runestone artwork.
+- Added `icon.tga` for WoW addon metadata / TOC usage.
+- Added `icon.png` and `curseforge-icon.png` for documentation and project-page usage.
+- Added `## IconTexture` metadata to the `_Camelot.toc` file.
+- Expanded README and added CurseForge-ready documentation text.
+- Added minor runtime optimization by caching ancestor-name lookups during map resolution.
+
+# 1.0.1
+
+- Restored the supplied base addon's standard blue dungeon portal.
+- Restored the supplied base addon's standard green raid portal.
+- Added a dedicated blue-orange portal for WoW Forever-new dungeons only.
+- Forever-new raids continue to use the normal green raid portal.
+- Icon selection now respects active filters when several records share a coordinate.
+- Removed the global gold icon tint.
+
+# 1.0.0
+
+- Rebuilt the supplied classic HandyNotes plugin as a WoW Forever-only addon.
+- Replaced the hard-coded old instance table with the supplied consolidated
+  dungeon/raid database.
+- Added strict new-database-first coordinate merge logic.
+- Added old-addon coordinate fallback only for matching records with missing
+  new coordinates.
+- Added dynamic Forever map discovery through `C_Map.GetMapChildrenInfo`.
+- Added safe map-ID validation so legacy numeric IDs cannot silently point to a
+  reused map.
+- Added Forever-new and Classic-era filters.
+- Removed dead lockout settings/code from the old addon.
+- Kept optional TomTom right-click waypoints.
+

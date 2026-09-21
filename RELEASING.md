@@ -1,0 +1,87 @@
+# Release workflow
+
+The release system mirrors the workflow used by Max Camera Distance:
+
+1. **Version is changed centrally in the Camelot TOC.**
+2. **`git-cliff` builds the release changelog from commit history.**
+3. The full release gate runs.
+4. A `chore(release): prepare for vX.Y.Z` commit is created.
+5. An annotated `vX.Y.Z` tag is created.
+6. Pushing that tag triggers GitHub Actions.
+7. BigWigs Packager creates the addon ZIP and publishes it to CurseForge.
+
+## Commit format
+
+Use conventional commits so the generated changelog is grouped correctly:
+
+```text
+feat: add new instance filter
+fix(map): correct Azeroth marker projection
+perf(map): cache resolved map transforms
+refactor: simplify node collection
+chore: update project metadata
+```
+
+`doc`, `style`, and `test` commits are intentionally omitted from public release notes by `cliff.toml`.
+
+## Prepare a release
+
+Install `git-cliff`, then run from a clean git checkout:
+
+```bash
+./release.sh 1.0.7
+```
+
+or:
+
+```bash
+./release.sh v1.0.7
+```
+
+The script automatically:
+
+- updates `## Version` to `v1.0.7`;
+- generates and prepends the `1.0.7` section in `CHANGELOG.md`;
+- validates that the tag and TOC version match;
+- runs `check_all.sh`;
+- creates the release commit;
+- creates the annotated tag.
+
+Review the result and push:
+
+```bash
+git push origin HEAD
+git push origin v1.0.7
+```
+
+Or let the release script push immediately:
+
+```bash
+./release.sh 1.0.7 --push
+```
+
+## CurseForge configuration
+
+Repository variable:
+
+```text
+CURSEFORGE_PROJECT_ID=<project id>
+```
+
+Repository secret:
+
+```text
+CF_API_KEY=<CurseForge token>
+```
+
+The tag-triggered GitHub workflow uses `BigWigsMods/packager@v2` and `.pkgmeta`.
+`CHANGELOG.md` is supplied to the packager as the manual release changelog.
+
+## Files responsible for releases
+
+- `release.sh` — version bump, changelog, validation, commit and tag
+- `tools/set_version.py` — deterministic TOC version writer/checker
+- `cliff.toml` — changelog grouping/rules
+- `check_all.sh` — release gate
+- `.pkgmeta` — BigWigs/CurseForge package metadata
+- `.github/workflows/release.yml` — tag-triggered publish pipeline
