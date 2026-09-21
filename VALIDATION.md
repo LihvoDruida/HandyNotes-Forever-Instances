@@ -1,4 +1,4 @@
-# Release pipeline validation — 1.0.6
+# Release pipeline validation — 1.0.8
 
 - `.pkgmeta` follows the BigWigs Packager structure used by Max Camera Distance.
 - `.github/workflows/release.yml` triggers only for `v*` tags.
@@ -10,9 +10,16 @@
 
 # Validation report
 
-Build-time checks completed for 1.0.5:
+Localization runtime checks:
 
-- Lua syntax: `Database.lua`, `LegacyFallback.lua`, and `Core.lua` parse successfully with LuaTeX.
+- `Localization.lua` parses successfully.
+- Auto language resolves `ukUA` to Ukrainian and unsupported locales to English.
+- Manual Ukrainian/English overrides resolve independently of the client locale.
+- Ukrainian UI keys and translated database notes were exercised in a Lua runtime smoke test.
+
+Build-time checks completed for 1.0.8:
+
+- Lua syntax: `Localization.lua`, `Database.lua`, `LegacyFallback.lua`, and `Core.lua` parse successfully with LuaTeX.
 - Database count: 28 dungeons and 9 raids.
 - Forever-new count: 9 dungeons and 2 raids.
 - Missing coordinates remain limited to 2 records:

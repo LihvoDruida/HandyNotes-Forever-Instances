@@ -36,6 +36,7 @@ local defaults = {
         continentAlpha = 0.95,
         showOnContinent = true,
         showOnAzeroth = true,
+        language = "auto",
         tomtom = true,
         show = {
             Dungeon = true,
@@ -58,6 +59,36 @@ local mapNameIndex = nil
 local ancestorNameCache = {}
 local initialized = false
 local waypointHandles = {}
+
+local function activeLanguage()
+    local preference = db and db.language or "auto"
+    if ns.ResolveLanguage then
+        return ns.ResolveLanguage(preference)
+    end
+    return "enUS"
+end
+
+local function L(key, ...)
+    local text = ns.GetLocalizedText and ns.GetLocalizedText(key, activeLanguage()) or key
+    if select("#", ...) > 0 then
+        return string.format(text, ...)
+    end
+    return text
+end
+
+local function localizedDatabaseText(value)
+    if ns.LocalizeDatabaseText then
+        return ns.LocalizeDatabaseText(value, activeLanguage())
+    end
+    return value
+end
+
+local function localizedDisplayName(value)
+    if ns.LocalizeDisplayName then
+        return ns.LocalizeDisplayName(value, activeLanguage())
+    end
+    return value
+end
 
 local function trim(value)
     if type(value) ~= "string" then return value end
@@ -666,11 +697,11 @@ end
 
 local function playerText(instance)
     if type(instance.players) == "number" and type(instance.maxPlayers) == "number" and instance.players ~= instance.maxPlayers then
-        return string.format("%d-%d players", instance.players, instance.maxPlayers)
+        return L("PLAYER_RANGE", instance.players, instance.maxPlayers)
     elseif type(instance.players) == "number" then
-        return string.format("%d players", instance.players)
+        return L("PLAYERS", instance.players)
     elseif type(instance.maxPlayers) == "number" then
-        return string.format("up to %d players", instance.maxPlayers)
+        return L("UP_TO_PLAYERS", instance.maxPlayers)
     end
     return nil
 end
@@ -687,6 +718,16 @@ local function sortedWings(wings)
         return tostring(a.name or "") < tostring(b.name or "")
     end)
     return result
+end
+
+local function localizedZoneName(instance)
+    if instance and instance._mapID then
+        local info = safeGetMapInfo(instance._mapID)
+        if info and type(info.name) == "string" and info.name ~= "" then
+            return info.name
+        end
+    end
+    return instance and instance.zone or nil
 end
 
 function pluginHandler:OnEnter(uiMapID, coord)
@@ -714,31 +755,33 @@ function pluginHandler:OnEnter(uiMapID, coord)
             shown = shown + 1
             if shown > 1 then tooltip:AddLine(" ") end
 
-            tooltip:AddLine(instance.name or instance._id or "Instance", 1.00, 0.82, 0.28)
+            tooltip:AddLine(instance.name or instance._id or L("INSTANCE"), 1.00, 0.82, 0.28)
 
             local meta = {}
-            table.insert(meta, instance._group == "Forever" and "Forever" or "Classic")
-            table.insert(meta, instance._kind)
+            table.insert(meta, instance._group == "Forever" and L("FOREVER") or L("CLASSIC"))
+            table.insert(meta, instance._kind == "Raid" and L("RAID") or L("DUNGEON"))
             local levels = levelText(instance)
-            if levels then table.insert(meta, "Lv " .. levels) end
+            if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
             local players = playerText(instance)
             if players then table.insert(meta, players) end
             tooltip:AddLine(table.concat(meta, "  |  "), 0.82, 0.82, 0.82)
 
             if instance.zone then
-                local location = instance.location and (instance.location .. " - " .. instance.zone) or instance.zone
-                tooltip:AddLine("Location: " .. location, 0.72, 0.82, 1.00)
+                local zoneName = localizedZoneName(instance) or instance.zone
+                local location = instance.location and (instance.location .. " - " .. zoneName) or zoneName
+                tooltip:AddLine(L("LOCATION", location), 0.72, 0.82, 1.00)
             end
 
             if db.showCoordinates and type(instance.x) == "number" and type(instance.y) == "number" then
-                local suffix = instance.coordFallbackFromLegacy and "  (legacy fallback)" or ""
-                tooltip:AddLine(string.format("Entrance: %.1f, %.1f%s", instance.x, instance.y, suffix), 0.72, 0.72, 0.72)
+                local suffix = instance.coordFallbackFromLegacy and L("LEGACY_FALLBACK") or ""
+                tooltip:AddLine(L("ENTRANCE", instance.x, instance.y, suffix), 0.72, 0.72, 0.72)
             end
 
             if instance.wings then
-                tooltip:AddLine("Wings:", 0.88, 0.78, 0.52)
+                tooltip:AddLine(L("WINGS"), 0.88, 0.78, 0.52)
                 for _, wing in ipairs(sortedWings(instance.wings)) do
-                    local line = "  " .. (wing.name or wing.fullName or "Wing")
+                    local wingName = wing.name or wing.fullName or L("WING")
+                    local line = "  " .. localizedDisplayName(wingName)
                     local wingLevels = levelText(wing)
                     if wingLevels then line = line .. "  [" .. wingLevels .. "]" end
                     tooltip:AddLine(line, 0.78, 0.78, 0.78)
@@ -746,14 +789,14 @@ function pluginHandler:OnEnter(uiMapID, coord)
             end
 
             if db.showNotes and instance.note then
-                tooltip:AddLine(trim(instance.note), 0.65, 0.65, 0.65, true)
+                tooltip:AddLine(localizedDatabaseText(trim(instance.note)), 0.65, 0.65, 0.65, true)
             end
         end
     end
 
     if shown > 0 and db.tomtom and TomTom and type(TomTom.AddWaypoint) == "function" then
         tooltip:AddLine(" ")
-        tooltip:AddLine("Right-click: set TomTom waypoint", 0.45, 0.95, 0.45)
+        tooltip:AddLine(L("RIGHT_CLICK_TOMTOM"), 0.45, 0.95, 0.45)
     end
 
     tooltip:Show()
@@ -790,7 +833,7 @@ function pluginHandler:OnClick(button, down, uiMapID, coord)
     local names = {}
     for _, instance in ipairs(node.instances) do
         if nodeVisible(instance) then
-            table.insert(names, instance.name or instance._id or "Instance")
+            table.insert(names, instance.name or instance._id or L("INSTANCE"))
         end
     end
     if #names == 0 then return end
@@ -813,11 +856,20 @@ local function notifyUpdate()
     HandyNotes:SendMessage("HandyNotes_NotifyUpdate", PLUGIN_NAME)
 end
 
+local function languageValues()
+    local clientLocale = ns.GetClientLocaleCode and ns.GetClientLocaleCode() or "enUS"
+    return {
+        auto = L("LANGUAGE_AUTO", clientLocale),
+        ukUA = L("LANGUAGE_UKRAINIAN"),
+        enUS = L("LANGUAGE_ENGLISH"),
+    }
+end
+
 local function makeOptions()
     return {
         type = "group",
         name = ADDON_TITLE,
-        desc = "Dungeon and raid entrance locations for World of Warcraft: Forever.",
+        desc = function() return L("ADDON_DESC") end,
         get = function(info) return db[info[#info]] end,
         set = function(info, value)
             db[info[#info]] = value
@@ -826,26 +878,38 @@ local function makeOptions()
         args = {
             description = {
                 type = "description",
-                name = "Forever-only HandyNotes database. New database coordinates take priority; old-addon coordinates are used only when the new record has no coordinates.",
+                name = function() return L("DESCRIPTION") end,
                 order = 1,
             },
+            language = {
+                type = "select",
+                name = function() return L("LANGUAGE") end,
+                desc = function() return L("LANGUAGE_DESC") end,
+                values = languageValues,
+                order = 2,
+                get = function() return db.language or "auto" end,
+                set = function(_, value)
+                    db.language = value
+                    notifyUpdate()
+                end,
+            },
             zoneScale = {
-                type = "range", name = "Zone icon scale", min = 0.2, max = 5, step = 0.1, order = 10,
+                type = "range", name = function() return L("ZONE_ICON_SCALE") end, min = 0.2, max = 5, step = 0.1, order = 10,
             },
             zoneAlpha = {
-                type = "range", name = "Zone icon opacity", min = 0, max = 1, step = 0.05, order = 11,
+                type = "range", name = function() return L("ZONE_ICON_OPACITY") end, min = 0, max = 1, step = 0.05, order = 11,
             },
             continentScale = {
-                type = "range", name = "Continent icon scale", min = 0.2, max = 5, step = 0.1, order = 12,
+                type = "range", name = function() return L("CONTINENT_ICON_SCALE") end, min = 0.2, max = 5, step = 0.1, order = 12,
             },
             continentAlpha = {
-                type = "range", name = "Continent icon opacity", min = 0, max = 1, step = 0.05, order = 13,
+                type = "range", name = function() return L("CONTINENT_ICON_OPACITY") end, min = 0, max = 1, step = 0.05, order = 13,
             },
             showOnContinent = {
-                type = "toggle", name = "Show on continent maps", order = 20,
+                type = "toggle", name = function() return L("SHOW_CONTINENT") end, order = 20,
             },
             showOnAzeroth = {
-                type = "toggle", name = "Show on Azeroth / global map", order = 21,
+                type = "toggle", name = function() return L("SHOW_AZEROTH") end, order = 21,
                 get = function() return db.showOnAzeroth end,
                 set = function(_, value)
                     db.showOnAzeroth = value
@@ -854,34 +918,34 @@ local function makeOptions()
                 end,
             },
             tomtom = {
-                type = "toggle", name = "TomTom right-click waypoints", order = 22,
+                type = "toggle", name = function() return L("TOMTOM_WAYPOINTS") end, order = 22,
             },
             showCoordinates = {
-                type = "toggle", name = "Show coordinates in tooltip", order = 23,
+                type = "toggle", name = function() return L("SHOW_COORDINATES") end, order = 23,
             },
             showNotes = {
-                type = "toggle", name = "Show database notes in tooltip", order = 24,
+                type = "toggle", name = function() return L("SHOW_NOTES") end, order = 24,
             },
             filters = {
-                type = "header", name = "Filters", order = 30,
+                type = "header", name = function() return L("FILTERS") end, order = 30,
             },
             showDungeons = {
-                type = "toggle", name = "Dungeons", order = 31,
+                type = "toggle", name = function() return L("DUNGEONS") end, order = 31,
                 get = function() return db.show.Dungeon end,
                 set = function(_, value) db.show.Dungeon = value notifyUpdate() end,
             },
             showRaids = {
-                type = "toggle", name = "Raids", order = 32,
+                type = "toggle", name = function() return L("RAIDS") end, order = 32,
                 get = function() return db.show.Raid end,
                 set = function(_, value) db.show.Raid = value notifyUpdate() end,
             },
             showClassic = {
-                type = "toggle", name = "Classic-era instances available in Forever", order = 33,
+                type = "toggle", name = function() return L("CLASSIC_INSTANCES") end, order = 33,
                 get = function() return db.show.Classic end,
                 set = function(_, value) db.show.Classic = value notifyUpdate() end,
             },
             showForever = {
-                type = "toggle", name = "Forever-new instances", order = 34,
+                type = "toggle", name = function() return L("FOREVER_INSTANCES") end, order = 34,
                 get = function() return db.show.Forever end,
                 set = function(_, value) db.show.Forever = value notifyUpdate() end,
             },

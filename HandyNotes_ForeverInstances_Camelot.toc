@@ -1,15 +1,18 @@
 ## Interface: 16001
 ## Title: HandyNotes: Forever Instances
 ## Notes: Dungeon and raid entrances for World of Warcraft: Forever.
-## Version: v1.0.7
+## Notes-ukUA: Входи до підземель і рейдів у World of Warcraft: Forever.
+## Version: v1.0.8
 ## Author: Forever adaptation based on Callie's HandyNotes_DungeonLocations (Classic)
 ## RequiredDeps: HandyNotes
 ## OptionalDeps: TomTom
 ## SavedVariables: HandyNotes_ForeverInstancesDB
 ## X-Game-Type: camelot
+## X-Localizations: enUS, ukUA
 ## X-License: All Rights Reserved
 ## IconTexture: Interface\AddOns\HandyNotes_ForeverInstances\icon
 
+Localization.lua
 Database.lua
 LegacyFallback.lua
 Core.lua

@@ -15,8 +15,6 @@ ignore:
   - .gitignore
   - .release
   - release.sh
-  - tools
-  - cliff.toml
   - check_all.sh
   - curseforge-icon.png
   - icon.png

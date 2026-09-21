@@ -34,6 +34,25 @@ with the supplied `WoWForeverInstances.lua` database.
   - wing breakdowns
   - database notes
 
+
+## Localization
+
+The addon includes a runtime language selector with three modes:
+
+- **Auto** — default; follows the WoW client locale.
+- **Українська** — forces Ukrainian.
+- **English** — forces English.
+
+When Auto is selected, a client reporting `ukUA` uses Ukrainian automatically.
+Other currently unsupported client locales fall back to English. The language can be
+overridden at any time from the HandyNotes plugin settings.
+
+Localized content includes settings, filters, tooltip labels, player counts,
+coordinate labels, TomTom instructions, wing labels, and database notes. Zone names
+are read from the current client through `C_Map` where possible, so they follow the
+client's own localization. Canonical dungeon and raid names remain the names stored
+in the database.
+
 ## Data merge rules
 
 1. `Database.lua` is authoritative.
@@ -70,6 +89,7 @@ They stay unresolved because no verified coordinates were available and the lega
 ## Files included
 
 - `HandyNotes_ForeverInstances_Camelot.toc`
+- `Localization.lua`
 - `Database.lua`
 - `LegacyFallback.lua`
 - `Core.lua`

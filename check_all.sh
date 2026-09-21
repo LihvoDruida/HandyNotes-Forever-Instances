@@ -39,6 +39,7 @@ release_layout() {
     local required=(
         "HandyNotes_ForeverInstances_Camelot.toc"
         "Core.lua"
+        "Localization.lua"
         "Database.lua"
         "LegacyFallback.lua"
         "dungeon.tga"

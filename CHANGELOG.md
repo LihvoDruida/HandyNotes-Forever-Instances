@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.8] - 2026-09-21
+
+### 🚀 New Features
+- Add runtime language switching with **Auto / Українська / English** modes.
+- Default language now follows the WoW client locale; `ukUA` automatically uses Ukrainian and unsupported locales fall back to English.
+- Add full Ukrainian translation for addon settings, tooltip labels, player counts, coordinate labels, filter names, and database notes.
+- Use the client-localized zone name from `C_Map` in tooltips when available.
+
+### 🛠️ Refactor
+- Move localization strings and translated database text into a dedicated `Localization.lua` module.
+- Keep canonical instance names from the database unchanged to avoid mismatches with source data while localizing addon-generated UI around them.
+
 ## [1.0.7] - 2026-09-21
 
 ### ⚙️ Miscellaneous Tasks
