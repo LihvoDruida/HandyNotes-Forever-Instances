@@ -41,6 +41,8 @@ release_layout() {
         "Core.lua"
         "Database.lua"
         "LegacyFallback.lua"
+        "Localizations/enUS.lua"
+        "Localizations/ukUA.lua"
         "dungeon.tga"
         "raid.tga"
         "forever_dungeon.tga"
@@ -162,7 +164,82 @@ workflow_config() {
     }
 }
 
+
+dungeon_territory_data() {
+    local lua_bin=""
+    if command -v lua5.1 >/dev/null 2>&1; then
+        lua_bin="lua5.1"
+    elif command -v lua >/dev/null 2>&1; then
+        lua_bin="lua"
+    else
+        echo "lua5.1/lua is required for dungeon territory validation" >&2
+        return 127
+    fi
+
+    "$lua_bin" - <<'LUA'
+local ns = {}
+local chunk, err = loadfile("Database.lua")
+assert(chunk, err)
+chunk("HandyNotes_ForeverInstances", ns)
+
+local counts = { Alliance = 0, Horde = 0, Contested = 0 }
+local total = 0
+for _, bucket in pairs(ns.DB.Dungeons or {}) do
+    for id, instance in pairs(bucket or {}) do
+        total = total + 1
+        assert(counts[instance.territory] ~= nil, "missing/invalid dungeon territory for " .. tostring(id))
+        counts[instance.territory] = counts[instance.territory] + 1
+        assert(instance.players == 5, "unexpected base group size for " .. tostring(id) .. ": " .. tostring(instance.players))
+        if id == "blackrock_spire" then
+            assert(instance.maxPlayers == 10, "Blackrock Spire must preserve its 5-10 player range")
+        end
+    end
+end
+
+assert(total == 28, "expected 28 dungeons, got " .. tostring(total))
+assert(counts.Alliance == 4, "expected 4 Alliance-territory dungeons, got " .. tostring(counts.Alliance))
+assert(counts.Horde == 7, "expected 7 Horde-territory dungeons, got " .. tostring(counts.Horde))
+assert(counts.Contested == 17, "expected 17 contested dungeons, got " .. tostring(counts.Contested))
+print(string.format("Dungeon territories: Alliance=%d Horde=%d Contested=%d", counts.Alliance, counts.Horde, counts.Contested))
+LUA
+}
+
+localization_tooltip_keys() {
+    local lua_bin=""
+    if command -v lua5.1 >/dev/null 2>&1; then
+        lua_bin="lua5.1"
+    elif command -v lua >/dev/null 2>&1; then
+        lua_bin="lua"
+    else
+        echo "lua5.1/lua is required for localization validation" >&2
+        return 127
+    fi
+
+    "$lua_bin" - <<'LUA'
+local ns = {}
+for _, path in ipairs({ "Localizations/enUS.lua", "Localizations/ukUA.lua" }) do
+    local chunk, err = loadfile(path)
+    assert(chunk, err)
+    chunk("HandyNotes_ForeverInstances", ns)
+end
+
+local required = {
+    "TERRITORY", "TERRITORY_ALLIANCE", "TERRITORY_HORDE", "TERRITORY_CONTESTED",
+    "BOSSES_LABEL", "LOCATION_LABEL", "ENTRANCE_LABEL", "OVERVIEW",
+    "FOREVER_CHANGES", "NOTES", "RIGHT_CLICK_TOMTOM",
+}
+for _, locale in ipairs({ "enUS", "ukUA" }) do
+    local bucket = assert(ns.Locales and ns.Locales[locale], "missing locale " .. locale)
+    for _, key in ipairs(required) do
+        assert(type(bucket[key]) == "string" and bucket[key] ~= "", locale .. " missing tooltip key " .. key)
+    end
+end
+LUA
+}
+
 stage "Lua syntax"             lua_syntax
+stage "Dungeon territory data" dungeon_territory_data
+stage "Tooltip localization"   localization_tooltip_keys
 stage "Release file layout"   release_layout
 stage "Forever-only TOC"      toc_forever_only
 stage "Release version applied" release_version_applied

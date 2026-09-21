@@ -68,26 +68,45 @@ local function activeLanguage()
     return "enUS"
 end
 
-local function L(key, ...)
+local function localizedRaw(key)
     local locales = ns.Locales or {}
     local english = locales.enUS or {}
     local bucket = locales[activeLanguage()] or english
-    local text = bucket[key] or english[key] or key
+    return bucket[key] or english[key]
+end
+
+local function L(key, ...)
+    local value = localizedRaw(key)
+    local text = type(value) == "string" and value or key
 
     if select("#", ...) > 0 then
-        return string.format(text, ...)
+        local ok, formatted = pcall(string.format, text, ...)
+        if ok then return formatted end
+        return text
+    end
+    return text
+end
+
+local function optionalL(key, ...)
+    local text = localizedRaw(key)
+    if type(text) ~= "string" or text == "" then return nil end
+
+    if select("#", ...) > 0 then
+        local ok, formatted = pcall(string.format, text, ...)
+        if ok then return formatted end
+        return text
     end
     return text
 end
 
 local function localizedDescription(instance)
     if not instance or type(instance.descriptionKey) ~= "string" then return nil end
-    return L(instance.descriptionKey)
+    return optionalL(instance.descriptionKey)
 end
 
 local function localizedForeverChange(instance)
     if not instance or type(instance.foreverChangeKey) ~= "string" then return nil end
-    return L(instance.foreverChangeKey)
+    return optionalL(instance.foreverChangeKey)
 end
 
 local function provenanceLabel(instance)
@@ -747,6 +766,133 @@ local function localizedZoneName(instance)
     return instance and instance.zone or nil
 end
 
+local TOOLTIP_COLORS = {
+    title = { 1.00, 0.82, 0.28 },
+    meta = { 0.76, 0.78, 0.82 },
+    label = { 0.68, 0.72, 0.78 },
+    value = { 0.92, 0.92, 0.92 },
+    body = { 0.86, 0.86, 0.86 },
+    accent = { 0.35, 0.85, 1.00 },
+    note = { 0.65, 0.65, 0.65 },
+    action = { 0.45, 0.95, 0.45 },
+    wing = { 0.78, 0.78, 0.78 },
+    alliance = { 0.28, 0.56, 1.00 },
+    horde = { 1.00, 0.30, 0.22 },
+    contested = { 0.95, 0.73, 0.28 },
+}
+
+local function addTooltipLine(tooltip, text, color, wrap)
+    if type(text) ~= "string" or text == "" then return end
+    color = color or TOOLTIP_COLORS.value
+    tooltip:AddLine(text, color[1], color[2], color[3], wrap == true)
+end
+
+local function addTooltipDetail(tooltip, label, value, valueColor)
+    if type(label) ~= "string" or label == "" or value == nil or value == "" then return end
+    local left = TOOLTIP_COLORS.label
+    local right = valueColor or TOOLTIP_COLORS.value
+    tooltip:AddDoubleLine(tostring(label), tostring(value), left[1], left[2], left[3], right[1], right[2], right[3])
+end
+
+local function addTooltipSection(tooltip, heading, body, color)
+    if type(body) ~= "string" or body == "" then return end
+    tooltip:AddLine(" ")
+    addTooltipLine(tooltip, heading, TOOLTIP_COLORS.label, false)
+    addTooltipLine(tooltip, body, color or TOOLTIP_COLORS.body, true)
+end
+
+local function territoryInfo(instance)
+    if not instance or instance._kind ~= "Dungeon" then return nil, nil end
+
+    if instance.territory == "Alliance" then
+        return L("TERRITORY_ALLIANCE"), TOOLTIP_COLORS.alliance
+    elseif instance.territory == "Horde" then
+        return L("TERRITORY_HORDE"), TOOLTIP_COLORS.horde
+    elseif instance.territory == "Contested" then
+        return L("TERRITORY_CONTESTED"), TOOLTIP_COLORS.contested
+    end
+
+    return nil, nil
+end
+
+local function renderInstanceTooltip(tooltip, instance)
+    addTooltipLine(tooltip, instance.name or instance._id or L("INSTANCE"), TOOLTIP_COLORS.title, false)
+
+    local meta = {
+        provenanceLabel(instance),
+        instance._kind == "Raid" and L("RAID") or L("DUNGEON"),
+    }
+    local levels = levelText(instance)
+    if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
+    local players = playerText(instance)
+    if players then table.insert(meta, players) end
+    addTooltipLine(tooltip, table.concat(meta, "  •  "), TOOLTIP_COLORS.meta, false)
+
+    local territory, territoryColor = territoryInfo(instance)
+    if territory then
+        addTooltipDetail(tooltip, L("TERRITORY"), territory, territoryColor)
+    end
+
+    if type(instance.bossCount) == "number" then
+        addTooltipDetail(tooltip, L("BOSSES_LABEL"), tostring(instance.bossCount))
+    end
+
+    if instance.zone then
+        local zoneName = localizedZoneName(instance) or instance.zone
+        local location = instance.location and (instance.location .. " - " .. zoneName) or zoneName
+        addTooltipDetail(tooltip, L("LOCATION_LABEL"), location)
+    end
+
+    if db.showCoordinates and type(instance.x) == "number" and type(instance.y) == "number" then
+        local coords = string.format("%.1f, %.1f", instance.x, instance.y)
+        if instance.coordFallbackFromLegacy then
+            coords = coords .. L("LEGACY_FALLBACK")
+        end
+        addTooltipDetail(tooltip, L("ENTRANCE_LABEL"), coords)
+    end
+
+    if db.showDescriptions then
+        local description = localizedDescription(instance)
+        if description then
+            addTooltipSection(tooltip, L("OVERVIEW"), description, TOOLTIP_COLORS.body)
+        end
+    end
+
+    if db.showDescriptions and instance.foreverStatus == "updated" then
+        local change = localizedForeverChange(instance)
+        if not change and instance._kind == "Dungeon" then
+            change = optionalL("DUNGEON_LOOT_UPDATE")
+        end
+        if change then
+            addTooltipSection(tooltip, L("FOREVER_CHANGES"), change, TOOLTIP_COLORS.accent)
+        end
+    end
+
+    if instance.wings then
+        local wings = sortedWings(instance.wings)
+        if #wings > 0 then
+            tooltip:AddLine(" ")
+            addTooltipLine(tooltip, L("WINGS"), TOOLTIP_COLORS.label, false)
+            for _, wing in ipairs(wings) do
+                local wingName = wing.name or wing.fullName or L("WING")
+                local wingLevels = levelText(wing)
+                if wingLevels then
+                    addTooltipDetail(tooltip, wingName, L("LEVEL_SHORT") .. " " .. wingLevels, TOOLTIP_COLORS.wing)
+                else
+                    addTooltipLine(tooltip, "  " .. wingName, TOOLTIP_COLORS.wing, false)
+                end
+            end
+        end
+    end
+
+    if db.showNotes and type(instance.noteKey) == "string" then
+        local note = optionalL(instance.noteKey)
+        if note then
+            addTooltipSection(tooltip, L("NOTES"), trim(note), TOOLTIP_COLORS.note)
+        end
+    end
+end
+
 function pluginHandler:OnEnter(uiMapID, coord)
     local node = getDisplayNode(uiMapID, coord)
     if not node then return end
@@ -770,73 +916,16 @@ function pluginHandler:OnEnter(uiMapID, coord)
     for _, instance in ipairs(node.instances) do
         if nodeVisible(instance) then
             shown = shown + 1
-            if shown > 1 then tooltip:AddLine(" ") end
-
-            tooltip:AddLine(instance.name or instance._id or L("INSTANCE"), 1.00, 0.82, 0.28)
-
-            local meta = {}
-            table.insert(meta, provenanceLabel(instance))
-            table.insert(meta, instance._kind == "Raid" and L("RAID") or L("DUNGEON"))
-            local levels = levelText(instance)
-            if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
-            local players = playerText(instance)
-            if players then table.insert(meta, players) end
-            tooltip:AddLine(table.concat(meta, "  |  "), 0.82, 0.82, 0.82)
-
-            if db.showDescriptions then
-                local description = localizedDescription(instance)
-                if type(description) == "string" and description ~= "" then
-                    tooltip:AddLine(description, 0.86, 0.86, 0.86, true)
-                end
+            if shown > 1 then
+                tooltip:AddLine(" ")
             end
-
-            if type(instance.bossCount) == "number" then
-                tooltip:AddLine(L("BOSSES", instance.bossCount), 0.82, 0.72, 0.50)
-            end
-
-            if db.showDescriptions and instance.foreverStatus == "updated" then
-                local change = localizedForeverChange(instance)
-                if type(change) ~= "string" or change == "" then
-                    if instance._kind == "Dungeon" then
-                        change = L("DUNGEON_LOOT_UPDATE")
-                    end
-                end
-                if type(change) == "string" and change ~= "" then
-                    tooltip:AddLine(L("FOREVER_CHANGE", change), 0.35, 0.85, 1.00, true)
-                end
-            end
-
-            if instance.zone then
-                local zoneName = localizedZoneName(instance) or instance.zone
-                local location = instance.location and (instance.location .. " - " .. zoneName) or zoneName
-                tooltip:AddLine(L("LOCATION", location), 0.72, 0.82, 1.00)
-            end
-
-            if db.showCoordinates and type(instance.x) == "number" and type(instance.y) == "number" then
-                local suffix = instance.coordFallbackFromLegacy and L("LEGACY_FALLBACK") or ""
-                tooltip:AddLine(L("ENTRANCE", instance.x, instance.y, suffix), 0.72, 0.72, 0.72)
-            end
-
-            if instance.wings then
-                tooltip:AddLine(L("WINGS"), 0.88, 0.78, 0.52)
-                for _, wing in ipairs(sortedWings(instance.wings)) do
-                    local wingName = wing.name or wing.fullName or L("WING")
-                    local line = "  " .. wingName
-                    local wingLevels = levelText(wing)
-                    if wingLevels then line = line .. "  [" .. wingLevels .. "]" end
-                    tooltip:AddLine(line, 0.78, 0.78, 0.78)
-                end
-            end
-
-            if db.showNotes and type(instance.noteKey) == "string" then
-                tooltip:AddLine(L(instance.noteKey), 0.65, 0.65, 0.65, true)
-            end
+            renderInstanceTooltip(tooltip, instance)
         end
     end
 
     if shown > 0 and db.tomtom and TomTom and type(TomTom.AddWaypoint) == "function" then
         tooltip:AddLine(" ")
-        tooltip:AddLine(L("RIGHT_CLICK_TOMTOM"), 0.45, 0.95, 0.45)
+        addTooltipLine(tooltip, L("RIGHT_CLICK_TOMTOM"), TOOLTIP_COLORS.action, false)
     end
 
     tooltip:Show()

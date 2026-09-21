@@ -27,16 +27,29 @@ with the supplied `WoWForeverInstances.lua` database.
   - Forever-new instances
   - Separate continent-map and Azeroth/global-map visibility toggles
 - Unified English / Ukrainian instance descriptions.
-- Shows extra tooltip data:
-  - recommended level range
-  - player count
-  - zone / location
-  - coordinates
-  - wing breakdowns
-  - boss counts
-  - Classic / Forever provenance and update status
-  - database notes
+- Uses one unified tooltip layout for every dungeon and raid:
+  - canonical instance name and status row
+  - faction territory for dungeons
+  - boss count, location, and entrance details
+  - description / Forever changes / wings / notes in consistent sections
+  - TomTom action shown in the same place on every tooltip
+- Dungeon faction-territory tags use faction-aware colors:
+  - **Alliance** — blue
+  - **Horde** — red
+  - **Contested** — gold
 
+
+## Dungeon faction territory
+
+The current Forever dungeon catalog is normalized into three territory groups for tooltip context:
+
+- **4 Alliance-territory dungeons**
+- **7 Horde-territory dungeons**
+- **17 Contested dungeons**
+
+These labels describe the faction territory around the dungeon entrance, not a blanket access restriction. Dungeon, raid, and wing names remain canonical and untranslated.
+
+Blackfathom Deeps is intentionally marked **Contested** because the addon's verified entrance is at The Zoram Strand in Ashenvale. Some current Forever listings place it on the Darkshore map and therefore label it Alliance territory; this addon follows the resolved entrance zone instead.
 
 ## Localization
 

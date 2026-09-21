@@ -62,3 +62,14 @@ All validation stages pass for v1.0.10.
 - Release workflow changelog generation uses `git-cliff --current --latest --prepend CHANGELOG.md`, avoiding the git-cliff 2.14.x prepend argument error while still selecting the checked-out tag.
 
 - `CHANGELOG.md` is regenerated from Git history for every release and is never trusted as a pre-built input file.
+## Tooltip / dungeon territory validation
+
+- All 28 dungeon records now carry exactly one `territory` value: `Alliance`, `Horde`, or `Contested`.
+- Expected distribution is enforced by `check_all.sh`: **4 Alliance / 7 Horde / 17 Contested**.
+- All current Forever dungeon records are normalized to a 5-player base group size where the current catalog identifies them as 5-player dungeons.
+- Tooltip labels for territory, bosses, location, entrance, overview, Forever changes, and notes are required in both `enUS` and `ukUA`.
+- Tooltip rendering is centralized in one renderer instead of formatting each data section independently.
+- Faction territory uses fixed visual semantics: Alliance blue, Horde red, Contested gold.
+
+
+- Blackfathom Deeps is validated as **Contested** because the resolved entrance is in The Zoram Strand, Ashenvale; this intentionally differs from current listings that map it to Darkshore / Alliance territory.

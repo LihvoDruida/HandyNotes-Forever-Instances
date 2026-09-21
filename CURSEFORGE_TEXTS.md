@@ -36,13 +36,16 @@ This version was rebuilt from the supplied classic HandyNotes dungeon addon and 
   - Classic-era instances
   - Forever-new instances
 - Separate visibility controls for continent maps and the Azeroth/global map
-- Tooltip details for:
-  - level range
-  - player count
-  - zone / location
-  - coordinates
-  - wing breakdowns
-  - database notes
+- Unified tooltip layout for every instance
+- Faction-territory tags for dungeons:
+  - Alliance — blue
+  - Horde — red
+  - Contested — gold
+- Tooltip sections for status, level/group size, bosses, location, coordinates, descriptions, Forever changes, wings, and notes
+
+### Dungeon territory labels
+
+The current Forever catalog is classified as **4 Alliance-territory**, **7 Horde-territory**, and **17 Contested** dungeons. The tooltip uses the corresponding faction color while keeping portal icons dedicated to instance type/content generation. Territory describes the area around the entrance and does not imply that every dungeon is faction-locked.
 
 ### Data logic
 
