@@ -143,6 +143,10 @@ workflow_config() {
         echo "release workflow must read CF_API_KEY from repository secrets" >&2
         return 1
     }
+    grep -Fq 'run: bash ./check_all.sh' "$workflow" || {
+        echo "release workflow must invoke check_all.sh through bash so CI does not depend on executable file mode" >&2
+        return 1
+    }
 }
 
 stage "Lua syntax"             lua_syntax

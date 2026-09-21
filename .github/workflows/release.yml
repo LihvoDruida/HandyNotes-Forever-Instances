@@ -48,7 +48,8 @@ jobs:
           fi
 
       - name: Run pre-release gate
-        run: ./check_all.sh
+        shell: bash
+        run: bash ./check_all.sh
 
       - name: Package and publish
         uses: BigWigsMods/packager@v2

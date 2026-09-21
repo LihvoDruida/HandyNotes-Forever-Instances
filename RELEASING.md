@@ -100,3 +100,21 @@ The tag-triggered GitHub workflow uses `BigWigsMods/packager@v2` and `.pkgmeta`.
 - `check_all.sh` — release gate
 - `.pkgmeta` — BigWigs/CurseForge package metadata
 - `.github/workflows/release.yml` — tag-triggered publish pipeline
+
+## Shell script permissions
+
+GitHub Actions invokes the pre-release gate as:
+
+```bash
+bash ./check_all.sh
+```
+
+and `release.sh` invokes it the same way. This is intentional: the release pipeline does not depend on the repository preserving the Unix executable bit, which is especially useful when commits are prepared from Windows.
+
+You may still keep the scripts executable locally with:
+
+```bash
+git update-index --chmod=+x check_all.sh release.sh
+```
+
+but it is no longer required for CI.

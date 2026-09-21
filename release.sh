@@ -71,7 +71,7 @@ echo "Generating CHANGELOG.md from git history..."
 git-cliff --unreleased --tag "$TAG" --prepend CHANGELOG.md
 
 # Make tag/version matching testable before the actual tag exists.
-GITHUB_REF_NAME="$TAG" ./check_all.sh
+GITHUB_REF_NAME="$TAG" bash ./check_all.sh
 
 # Only release-controlled files should have changed at this point.
 UNEXPECTED=$(git status --porcelain | awk '{print $2}' | grep -Ev '^(HandyNotes_ForeverInstances_Camelot\.toc|CHANGELOG\.md)$' || true)
