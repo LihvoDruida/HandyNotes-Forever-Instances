@@ -7,7 +7,7 @@
 # The script:
 #   1. validates the repository state;
 #   2. changes the TOC version;
-#   3. generates the release changelog from git commits with git-cliff;
+#   3. regenerates the release changelog from git commits with git-cliff;
 #   4. runs the full pre-release gate;
 #   5. creates the conventional release commit and annotated tag;
 #   6. with --push, pushes commit + tag and lets GitHub Actions publish CurseForge.
@@ -65,10 +65,13 @@ echo "Preparing release: ${CURRENT_VERSION:-unknown} -> $TAG"
 
 python3 tools/set_version.py "$TAG"
 
-# Generate only commits since the latest release tag and prepend the new block.
-# The release preparation commit itself is excluded by cliff.toml on future runs.
+# CHANGELOG.md is a generated release artifact, never an input.
+# Discard any existing copy and rebuild the current release notes exclusively
+# from commits since the previous matching release tag.
 echo "Generating CHANGELOG.md from git history..."
-git-cliff --unreleased --tag "$TAG" --prepend CHANGELOG.md
+rm -f CHANGELOG.md
+git-cliff --unreleased --tag "$TAG" --output CHANGELOG.md
+test -s CHANGELOG.md
 
 # Make tag/version matching testable before the actual tag exists.
 GITHUB_REF_NAME="$TAG" bash ./check_all.sh

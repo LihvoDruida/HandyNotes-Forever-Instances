@@ -60,3 +60,5 @@ All validation stages pass for v1.0.10.
 - The pre-release gate validates the rewritten version instead of requiring the repository TOC value to match the tag before preparation.
 
 - Release workflow changelog generation uses `git-cliff --current --latest --prepend CHANGELOG.md`, avoiding the git-cliff 2.14.x prepend argument error while still selecting the checked-out tag.
+
+- `CHANGELOG.md` is regenerated from Git history for every release and is never trusted as a pre-built input file.

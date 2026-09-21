@@ -149,3 +149,16 @@ git-cliff --current --latest --prepend CHANGELOG.md
 `--current` selects the commits belonging to the checked-out release tag.
 `--latest` is also supplied because git-cliff requires `--latest`, `--unreleased`, or an explicit range when `--prepend` is used. Without it, git-cliff 2.14.x exits with `ArgumentError("'-u' or '-l' is not specified")`.
 
+
+## Changelog generation
+
+`CHANGELOG.md` is a **generated release artifact**. It is not treated as an input
+for a release. Both local and GitHub release flows discard any existing copy and
+regenerate it from Git history with `git-cliff`.
+
+- Local preparation: `git-cliff --unreleased --tag vX.Y --output CHANGELOG.md`
+- Tag workflow: `git-cliff --current --output CHANGELOG.md`
+
+This means stale or manually edited release notes cannot silently become the
+CurseForge changelog. Conventional commit history plus `cliff.toml` is the source
+of truth for the generated change list.

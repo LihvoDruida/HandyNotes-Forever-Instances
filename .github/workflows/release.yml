@@ -39,19 +39,21 @@ jobs:
         with:
           tool: git-cliff
 
-      - name: Apply requested release version
+      - name: Generate release metadata
         shell: bash
         run: |
           set -euo pipefail
+
+          # The pushed tag is authoritative for the release version.
           python3 tools/set_version.py "$GITHUB_REF_NAME"
 
-          VERSION="${GITHUB_REF_NAME#v}"
-          if ! grep -Fq "## [$VERSION]" CHANGELOG.md; then
-            echo "Generating CHANGELOG.md for $GITHUB_REF_NAME from the current tag..."
-            git-cliff --current --latest --prepend CHANGELOG.md
-          else
-            echo "CHANGELOG.md already contains release section $VERSION"
-          fi
+          # Never consume a pre-existing changelog. Release notes are rebuilt
+          # from Git history for the tag that triggered this workflow.
+          rm -f CHANGELOG.md
+          git-cliff --current --output CHANGELOG.md
+
+          test -s CHANGELOG.md
+          echo "Generated CHANGELOG.md from Git history for $GITHUB_REF_NAME"
 
       - name: Validate CurseForge configuration
         shell: bash
