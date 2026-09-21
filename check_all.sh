@@ -23,16 +23,37 @@ lua_syntax() {
         compiler="luac5.1"
     elif command -v luac >/dev/null 2>&1; then
         compiler="luac"
-    else
-        echo "luac5.1/luac is required for the Lua syntax gate" >&2
-        return 127
     fi
 
     local rc=0
-    while IFS= read -r -d '' f; do
-        "$compiler" -p "$f" || rc=1
-    done < <(find . -maxdepth 1 -name '*.lua' -print0)
-    return $rc
+    if [[ -n "$compiler" ]]; then
+        while IFS= read -r -d '' f; do
+            "$compiler" -p "$f" || rc=1
+        done < <(find . -maxdepth 1 -name '*.lua' -print0)
+        return $rc
+    fi
+
+    if command -v luatex >/dev/null 2>&1; then
+        local checker
+        checker=$(mktemp)
+        cat >"$checker" <<'LUA'
+for i = 1, #arg do
+    local chunk, err = loadfile(arg[i])
+    if not chunk then
+        io.stderr:write(arg[i] .. ": " .. tostring(err) .. "\n")
+        os.exit(1)
+    end
+end
+LUA
+        local files=()
+        while IFS= read -r -d '' f; do files+=("$f"); done < <(find . -maxdepth 1 -name '*.lua' -print0)
+        luatex --luaonly "$checker" "${files[@]}" || rc=1
+        rm -f "$checker"
+        return $rc
+    fi
+
+    echo "luac5.1, luac, or luatex is required for the Lua syntax gate" >&2
+    return 127
 }
 
 release_layout() {

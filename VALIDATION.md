@@ -1,3 +1,20 @@
+# Validation report — v1.0.9
+
+Data checks for this update:
+
+- 28 dungeon records and 9 raid records remain in the map database.
+- All 37 instance records now have English and Ukrainian descriptions.
+- 9 dungeons and 2 raids are marked as Forever-new.
+- All 19 Classic-origin dungeons are marked `Classic • Forever • Updated` because the current Forever dungeon guidance confirms boss-loot reworks across old and new dungeons.
+- Molten Core and Onyxia's Lair carry explicit confirmed Forever progression changes.
+- The other 5 Classic-origin raids are marked `Classic • Forever` without inventing unconfirmed encounter changes.
+- Boss counts are populated for 32 records where a current count is published.
+- Barrow Deeps stores 8 boss/objective names and Hyjal Summit stores 13 from the current Legacy raid objectives.
+- Future unnamed roadmap raids are intentionally excluded from map nodes until their identity/location is published.
+- Database schema version: 2.
+
+## Previous validation notes
+
 # Release pipeline validation — 1.0.8
 
 - `.pkgmeta` follows the BigWigs Packager structure used by Max Camera Distance.

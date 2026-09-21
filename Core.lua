@@ -45,6 +45,7 @@ local defaults = {
             Forever = true,
         },
         showCoordinates = true,
+        showDescriptions = true,
         showNotes = true,
     },
 }
@@ -88,6 +89,39 @@ local function localizedDisplayName(value)
         return ns.LocalizeDisplayName(value, activeLanguage())
     end
     return value
+end
+
+local function localizedDescription(instance)
+    if not instance then return nil end
+    if activeLanguage() == "ukUA" and type(instance.descriptionUk) == "string" and instance.descriptionUk ~= "" then
+        return instance.descriptionUk
+    end
+    return instance.description
+end
+
+local function localizedForeverChange(instance)
+    if not instance then return nil end
+    if activeLanguage() == "ukUA" and type(instance.foreverChangeUk) == "string" and instance.foreverChangeUk ~= "" then
+        return instance.foreverChangeUk
+    end
+    return instance.foreverChange
+end
+
+local function provenanceLabel(instance)
+    if not instance then return L("CLASSIC") end
+
+    if instance.isForeverNew == true or instance.origin == "Forever" or instance._group == "Forever" then
+        return L("FOREVER") .. " • " .. L("NEW")
+    end
+
+    if instance.availableInForever then
+        if instance.foreverStatus == "updated" then
+            return L("CLASSIC") .. " • " .. L("FOREVER") .. " • " .. L("UPDATED")
+        end
+        return L("CLASSIC") .. " • " .. L("FOREVER")
+    end
+
+    return L("CLASSIC")
 end
 
 local function trim(value)
@@ -758,13 +792,36 @@ function pluginHandler:OnEnter(uiMapID, coord)
             tooltip:AddLine(instance.name or instance._id or L("INSTANCE"), 1.00, 0.82, 0.28)
 
             local meta = {}
-            table.insert(meta, instance._group == "Forever" and L("FOREVER") or L("CLASSIC"))
+            table.insert(meta, provenanceLabel(instance))
             table.insert(meta, instance._kind == "Raid" and L("RAID") or L("DUNGEON"))
             local levels = levelText(instance)
             if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
             local players = playerText(instance)
             if players then table.insert(meta, players) end
             tooltip:AddLine(table.concat(meta, "  |  "), 0.82, 0.82, 0.82)
+
+            if db.showDescriptions then
+                local description = localizedDescription(instance)
+                if type(description) == "string" and description ~= "" then
+                    tooltip:AddLine(description, 0.86, 0.86, 0.86, true)
+                end
+            end
+
+            if type(instance.bossCount) == "number" then
+                tooltip:AddLine(L("BOSSES", instance.bossCount), 0.82, 0.72, 0.50)
+            end
+
+            if db.showDescriptions and instance.foreverStatus == "updated" then
+                local change = localizedForeverChange(instance)
+                if type(change) ~= "string" or change == "" then
+                    if instance._kind == "Dungeon" then
+                        change = L("DUNGEON_LOOT_UPDATE")
+                    end
+                end
+                if type(change) == "string" and change ~= "" then
+                    tooltip:AddLine(L("FOREVER_CHANGE", change), 0.35, 0.85, 1.00, true)
+                end
+            end
 
             if instance.zone then
                 local zoneName = localizedZoneName(instance) or instance.zone
@@ -923,8 +980,11 @@ local function makeOptions()
             showCoordinates = {
                 type = "toggle", name = function() return L("SHOW_COORDINATES") end, order = 23,
             },
+            showDescriptions = {
+                type = "toggle", name = function() return L("SHOW_DESCRIPTIONS") end, order = 24,
+            },
             showNotes = {
-                type = "toggle", name = function() return L("SHOW_NOTES") end, order = 24,
+                type = "toggle", name = function() return L("SHOW_NOTES") end, order = 25,
             },
             filters = {
                 type = "header", name = function() return L("FILTERS") end, order = 30,

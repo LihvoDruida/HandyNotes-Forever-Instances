@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.9] - 2026-09-21
+
+### 🚀 New Features
+- Expand the Forever data model to explicitly track Classic-origin content that is available in Forever without duplicating map pins.
+- Add unified English and Ukrainian descriptions for all 28 dungeons and all 9 raids.
+- Add source-backed boss counts where currently published.
+- Add Barrow Deeps and Hyjal Summit boss rosters from the current Forever Legacy raid objectives.
+- Add provenance/status labels: `Forever • New`, `Classic • Forever`, and `Classic • Forever • Updated`.
+- Add a tooltip option for instance descriptions and display of boss counts.
+
+### 🛠️ Refactor
+- Mark returning Classic dungeons as updated in Forever because dungeon boss loot is reworked across old and new dungeons.
+- Mark Molten Core and Onyxia's Lair with their confirmed Forever progression/tier changes.
+- Keep unnamed future roadmap raids out of the map database until a confirmed name and location exist.
+- Bump database schema to version 2.
+
 ## [1.0.8] - 2026-09-21
 
 ### 🚀 New Features

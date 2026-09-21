@@ -19,9 +19,13 @@ local addonName, ns = ...
 --   * Classic entrance coords: WoW Handbook where consistent.
 --   * Conflicting coordinates were cross-checked instead of copied blindly.
 --   * Unknown/TBA Forever entrance coordinates remain nil.
+--   * Unified descriptions: concise paraphrases synthesized from the checked Forever dungeon/raid resources;
+--     the UI does not split descriptions by source.
+--   * Returning Classic instances are marked as available in Forever without duplicating map nodes.
+--   * Unnamed roadmap raids are intentionally not added as map records until a name/location is published.
 
 local DB = {
-    version = 1,
+    version = 2,
     coordinateUnit = "percent",
 
     Dungeons = {
@@ -38,6 +42,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "Volcanic caverns beneath Orgrimmar where Burning Blade warlocks and demonic forces gather; a compact early Horde dungeon.",
+                descriptionUk = "Вулканічні печери під Орґріммаром, де збираються чаклуни Палаючого Клинка та демонічні сили; компактне раннє підземелля Орди.",
+                bossCount = 4,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             deadmines = {
@@ -53,6 +63,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "The Defias Brotherhood's hidden complex beneath Westfall, leading through old mines to a pirate ship and Edwin VanCleef.",
+                descriptionUk = "Прихований комплекс Братства Дефіас під Західним Краєм: від старих шахт до піратського корабля та Едвіна ван Кліфа.",
+                bossCount = 7,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             wailing_caverns = {
@@ -67,6 +83,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "A winding cave network in the Barrens where Naralex's dream has twisted druids, beasts, and the caverns around them.",
+                descriptionUk = "Звивиста мережа печер у Степах, де сон Наралекса спотворив друїдів, звірів і самі печери.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             shadowfang_keep = {
@@ -81,6 +103,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "A gothic fortress above Pyrewood Village, haunted by cursed worgen and ruled by Archmage Arugal.",
+                descriptionUk = "Готична фортеця над Пайрвудом, населена проклятими ворґенами та підвладна архімагу Аругалу.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             blackfathom_deeps = {
@@ -97,6 +125,12 @@ local DB = {
                 coordStatus = "conflict_resolved",
                 coordSource = "warcrafttavern",
                 note = "WoWHandbook currently places this in Darkshore; Warcraft Tavern and Classic references place the entrance at The Zoram Strand in Ashenvale.",
+                description = "Sunken night elf ruins occupied by Twilight's Hammer cultists, satyrs, and the hydra Aku'mai.",
+                descriptionUk = "Затоплені руїни нічних ельфів, зайняті культистами Сутінкового Молота, сатирами та гідрою Аку'май.",
+                bossCount = 7,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             the_stockade = {
@@ -112,6 +146,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "Stormwind's fortified prison has fallen into a violent inmate uprising beneath the city.",
+                descriptionUk = "Укріплена в'язниця Штормграда під містом охоплена жорстоким повстанням ув'язнених.",
+                bossCount = 5,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             gnomeregan = {
@@ -127,6 +167,12 @@ local DB = {
                 coordStatus = "cross_checked",
                 coordSource = "warcrafttavern",
                 note = "Warcraft Tavern entrance coordinate; WoWHandbook uses a different point in the Gnomeregan exterior complex.",
+                description = "The irradiated ruins of the gnomish capital, packed with malfunctioning machinery, troggs, and renegade forces.",
+                descriptionUk = "Опромінені руїни гномської столиці, заповнені несправними механізмами, трогами та силами заколотників.",
+                bossCount = 5,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             razorfen_kraul = {
@@ -142,6 +188,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "A massive thorn maze grown from Agamaggan's legacy and controlled by quilboar under Charlga Razorflank.",
+                descriptionUk = "Величезний колючий лабіринт, породжений спадщиною Агамаггана й контрольований квілборами під проводом Чарлґи Бритвобокої.",
+                bossCount = 6,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             scarlet_monastery = {
@@ -195,6 +247,12 @@ local DB = {
                         maxPlayers = 10,
                     },
                 },
+                description = "The Scarlet Crusade's stronghold in Tirisfal, divided into Graveyard, Library, Armory, and Cathedral wings.",
+                descriptionUk = "Оплот Багряного Походу в Тірісфалі, поділений на крила Цвинтаря, Бібліотеки, Збройової та Собору.",
+                bossCount = 7,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             uldaman = {
@@ -209,6 +267,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "An ancient Titan vault beneath the Badlands containing records of dwarven origins and the guardian Archaedas.",
+                descriptionUk = "Стародавнє сховище титанів під Безплідними землями, де зберігаються таємниці походження дворфів і чатують охоронці на чолі з Аркедасом.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             razorfen_downs = {
@@ -225,6 +289,12 @@ local DB = {
                 coordStatus = "cross_checked",
                 coordSource = "wowhandbook",
                 note = "WoWHandbook's ~50.9,92.9 agrees with Classic references for the actual instance entrance; some guides use an earlier approach point around 43,95.",
+                description = "Quilboar ancestral catacombs corrupted by the Scourge and the lich Amnennar the Coldbringer.",
+                descriptionUk = "Родові катакомби квілборів, осквернені Плеттю та лічем Амненнаром Холодоносцем.",
+                bossCount = 6,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             zulfarrak = {
@@ -240,6 +310,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "The open-air Sandfury troll city in Tanaris, known for its pyramid battle and the hydra Gahz'rilla.",
+                descriptionUk = "Відкрите місто тролів Піщаної Люті в Танарісі, відоме битвою біля піраміди та гідрою Газ'ріллою.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             maraudon = {
@@ -260,6 +336,12 @@ local DB = {
                     label = "Valley of Spears / exterior approach",
                     source = "warcrafttavern",
                 },
+                description = "A vast centaur necropolis beneath Desolace where corrupted caverns descend toward Princess Theradras.",
+                descriptionUk = "Величезний некрополь кентаврів під Спустошенням, де осквернені печери ведуть до принцеси Терадрас.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             temple_of_atal_hakkar = {
@@ -276,6 +358,12 @@ local DB = {
                 coordStatus = "conflict_resolved",
                 coordSource = "cross_check",
                 note = "WoWHandbook currently lists 77.3,35.9. Classic entrance references and the actual temple location place the exterior entrance around 69,54.",
+                description = "A sunken Atal'ai pyramid where Hakkar's cult operates among undead trolls and corrupted green dragons.",
+                descriptionUk = "Затоплена піраміда Атал'ай, де культ Гаккара діє серед неживих тролів і спотворених зелених драконів.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             blackrock_depths = {
@@ -292,6 +380,12 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "The sprawling Dark Iron capital inside Blackrock Mountain, stretching from prisons and factories to Emperor Thaurissan's throne.",
+                descriptionUk = "Величезна столиця дворфів Чорного Заліза всередині Чорної гори — від в'язниць і цехів до трону імператора Тауріссана.",
+                bossCount = 21,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             blackrock_spire = {
@@ -326,6 +420,12 @@ local DB = {
                         maxPlayers = 10,
                     },
                 },
+                description = "A volcanic fortress above Blackrock Mountain split between Lower and Upper Spire, occupied by the Dark Horde and dragonkin.",
+                descriptionUk = "Вулканічна фортеця над Чорною горою, поділена на Нижній і Верхній Шпиль та зайнята Темною Ордою й драконідами.",
+                bossCount = 14,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             dire_maul = {
@@ -368,6 +468,12 @@ local DB = {
                         maxPlayers = 5,
                     },
                 },
+                description = "The ruined Highborne city of Eldre'Thalas, divided into three wings filled with demons, ogres, and ancient magic.",
+                descriptionUk = "Руїни високородного міста Ельдре'Талас, поділені на три крила з демонами, ограми та стародавньою магією.",
+                bossCount = 19,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             stratholme = {
@@ -402,6 +508,12 @@ local DB = {
                         maxPlayers = 5,
                     },
                 },
+                description = "The burning remains of Stratholme, split between living Scarlet forces and Scourge-held undead districts.",
+                descriptionUk = "Палаючі руїни Стратгольма, поділені між живими силами Багряного Походу та кварталами нежиті під контролем Плеті.",
+                bossCount = 19,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
 
             scholomance = {
@@ -417,6 +529,12 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "A necromantic academy beneath Caer Darrow where the Cult of the Damned trains under Darkmaster Gandling.",
+                descriptionUk = "Некромантична академія під Каер Дарроу, де Культ Проклятих навчається під керівництвом Темного магістра Ґандлінґа.",
+                bossCount = 14,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
             },
         },
 
@@ -437,6 +555,12 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowhead",
                 note = "Inside Ironforge, in the High Seat / throne hall.",
+                description = "Sacred dwarven burial chambers beneath Ironforge disturbed by Dark Iron intruders, restless dead, and other threats.",
+                descriptionUk = "Священні поховальні зали дворфів під Стальгорном, потривожені вторгненням Чорного Заліза, неспокійною нежиттю та іншими загрозами.",
+                bossCount = 4,
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             ruins_of_lordaeron = {
@@ -453,6 +577,12 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "dving",
                 note = "Inner courtyard of the Lordaeron ruins above Undercity; approach through the former Lordaeron main gate.",
+                description = "The shattered capital above Undercity has become a dungeon through ruined streets, Scourge remnants, and a necromancer's forces.",
+                descriptionUk = "Зруйнована столиця над Підмістом стала підземеллям серед розбитих вулиць, залишків Плеті та сил некроманта.",
+                bossCount = 7,
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             excavation_site_wetlands = {
@@ -470,6 +600,12 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
                 note = "Dungeon entrance at Whelgar's Excavation Site in Wetlands.",
+                description = "A dwarven excavation in the Wetlands has uncovered something ancient and dangerous beneath the dig site.",
+                descriptionUk = "Дворфійські розкопки в Болотяних угіддях пробудили щось давнє й небезпечне під місцем експедиції.",
+                bossCount = 4,
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             city_of_dalaran = {
@@ -486,6 +622,12 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
                 note = "Entrance beneath the Violet Dome of Dalaran.",
+                description = "The ruined magical city lies under an unstable arcane dome, with magical disturbances and demonic influence spreading through its streets.",
+                descriptionUk = "Зруйноване магічне місто перебуває під нестабільним арканним куполом, а його вулицями ширяться магічні аномалії та демонічний вплив.",
+                bossCount = 9,
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             drowned_city = {
@@ -503,6 +645,11 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
                 note = "Underwater entrance near the north-west coast; dive toward the ruined troll columns. Level range 35-40 uses the corrected Forever table.",
+                description = "A sunken troll city has risen along Stranglethorn's coast, now occupied by naga, risen trolls, makrura, and dangers in its flooded depths.",
+                descriptionUk = "Затонуле трольське місто піднялося біля узбережжя Тернистої долини; тепер його населяють наги, повсталі тролі, макрури та небезпеки затоплених глибин.",
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             kroldok_stronghold = {
@@ -521,6 +668,11 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving_wowhead",
                 note = "Stronghold in the wooded eastern ravine. Level range 40-45 is the corrected Blizzard-published range.",
+                description = "A new stronghold dungeon in the Riverglades frontier, built around the dangers occupying the region's eastern reaches.",
+                descriptionUk = "Нове підземелля-фортеця на рубежах Ріверґлейдс, пов'язане із загрозами східної частини регіону.",
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             alcaz_prison = {
@@ -538,6 +690,11 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving_wowhead",
                 note = "Entrance on Alcaz Island, leading into the prison complex beneath the main fort.",
+                description = "A prison complex on Alcaz Island beneath the main fort, opening a new high-level expedition off Dustwallow Marsh.",
+                descriptionUk = "Тюремний комплекс на острові Алькац під головною фортецею, що відкриває нову високорівневу експедицію біля Пилових боліт.",
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             blackmaw_hold = {
@@ -554,6 +711,11 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving_wowhead",
                 note = "Far north of Azshara, behind the large furbolg gate. The dungeon also connects onward toward Barrow Deeps.",
+                description = "A high-level dungeon in northern Azshara centered on corruption stirring within the furbolg hold and its depths.",
+                descriptionUk = "Високорівневе підземелля на півночі Азшари, де в глибинах фортеці фурболґів шириться тривожне осквернення.",
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
 
             shapers_terrace = {
@@ -571,6 +733,11 @@ local DB = {
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
                 note = "High on the rocky slopes along the northern wall of Un'Goro Crater.",
+                description = "A high-level expedition into Titan mysteries on the northern heights of Un'Goro Crater.",
+                descriptionUk = "Високорівнева експедиція до таємниць титанів на північних висотах кратера Ун'Ґоро.",
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
             },
         },
     },
@@ -589,6 +756,14 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "Ragnaros and his lieutenants command the fiery heart of Blackrock Mountain; in Forever, Molten Core follows the opening raid tier instead of starting it.",
+                descriptionUk = "Раґнарос і його слуги панують у вогняному серці Чорної гори; у Forever Вогняні Надра йдуть після стартового рейдового тиру, а не відкривають його.",
+                bossCount = 10,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
+                foreverChange = "Forever changes the raid progression order: Molten Core comes after the opening tier rather than opening level-60 raiding.",
+                foreverChangeUk = "Forever змінює порядок рейдової прогресії: Вогняні Надра йдуть після стартового тиру, а не відкривають рейдинг 60 рівня.",
             },
 
             onyxias_lair = {
@@ -602,6 +777,15 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "Onyxia's one-boss lair in Dustwallow Marsh returns as the 40-player raid of Forever's opening tier alongside 10- and 20-player raids.",
+                descriptionUk = "Однобосове лігво Оніксії в Пилових болотах повертається як 40-гравцевий рейд стартового тиру Forever поруч із рейдами на 10 і 20 гравців.",
+                bossCount = 1,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "updated",
+                foreverChange = "Onyxia's Lair is moved into Forever's opening raid tier, unlocking with Barrow Deeps and Hyjal Summit on December 9, 2026.",
+                foreverChangeUk = "Лігво Оніксії перенесене до стартового рейдового тиру Forever і відкривається разом із Barrow Deeps та Hyjal Summit 9 грудня 2026 року.",
+                bosses = { "Onyxia" },
             },
 
             blackwing_lair = {
@@ -616,6 +800,12 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "Nefarian's laboratory atop Blackrock Mountain, where the black dragonflight experiments on other dragonflights to create a chromatic brood.",
+                descriptionUk = "Лабораторія Нефаріана на вершині Чорної гори, де чорні дракони експериментують над іншими зграями, створюючи хроматичний виводок.",
+                bossCount = 8,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "returning",
             },
 
             zulgurub = {
@@ -629,6 +819,12 @@ local DB = {
                 players = 20,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "A 20-player assault on the Gurubashi capital where Hakkar's priests prepare the Soulflayer's return.",
+                descriptionUk = "20-гравцевий похід у столицю Ґурубаші, де жерці Гаккара готують повернення Пожирача Душ.",
+                bossCount = 10,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "returning",
             },
 
             ruins_of_ahnqiraj = {
@@ -642,6 +838,12 @@ local DB = {
                 players = 20,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "The outer city of the qiraji empire beyond the Scarab Wall, defended by field armies and six raid encounters.",
+                descriptionUk = "Зовнішнє місто імперії кіраджів за Скарабеєвою Стіною, яке захищають польові армії та шість рейдових зустрічей.",
+                bossCount = 6,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "returning",
             },
 
             temple_of_ahnqiraj = {
@@ -655,6 +857,12 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                description = "A descent into the heart of the qiraji empire and the prison of the Old God C'Thun.",
+                descriptionUk = "Спуск у саме серце імперії кіраджів і до в'язниці Старого Бога К'Туна.",
+                bossCount = 9,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "returning",
             },
 
             naxxramas = {
@@ -669,6 +877,12 @@ local DB = {
                 coordStatus = "cross_checked",
                 coordSource = "wowhead_classic",
                 note = "Ground entry is the Plaguewood teleport spire; the necropolis itself floats above the zone.",
+                description = "Kel'Thuzad's floating necropolis above the Eastern Plaguelands, with four wings and fifteen encounters leading to the lich himself.",
+                descriptionUk = "Летючий некрополь Кел'Тузада над Східними Чумними землями: чотири крила й п'ятнадцять зустрічей, що ведуть до самого ліча.",
+                bossCount = 15,
+                origin = "Classic",
+                availableInForever = true,
+                foreverStatus = "returning",
             },
         },
 
@@ -685,6 +899,13 @@ local DB = {
                 players = 10,
                 coordStatus = "tba",
                 note = "Warcraft Tavern identifies a Mount Hyjal entrance and says two other entrances are still TBA.",
+                description = "A new 10-player raid beneath Mount Hyjal, where ancient barrow dens and the Emerald Dream have become the focus of a dangerous disturbance.",
+                descriptionUk = "Новий 10-гравцевий рейд під горою Гіджал, де стародавні курганні сховища й Смарагдовий Сон стали осередком небезпечного порушення.",
+                bossCount = 8,
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
+                bosses = { "Deepscar Matriarch", "Elder Tangleclaw", "Khalith the Dreadspinner", "Well of Sorrow", "Amethrax", "Del'lynar Songwood", "Ravus and Darlyssa", "Sonya Darkhallow" },
             },
 
             hyjal_summit = {
@@ -698,6 +919,13 @@ local DB = {
                 players = 20,
                 coordStatus = "tba",
                 note = "Location is confirmed as Mount Hyjal; a reliable entrance coordinate is not yet published in the checked sources.",
+                description = "A new 20-player raid atop Mount Hyjal, returning to sacred ground around Nordrassil where a new threat is stirring after the Third War.",
+                descriptionUk = "Новий 20-гравцевий рейд на вершині Гіджалу — священній землі біля Нордрассілу, де після Третьої війни пробуджується нова загроза.",
+                bossCount = 13,
+                origin = "Forever",
+                availableInForever = true,
+                foreverStatus = "new",
+                bosses = { "Bandalar", "Ancient of Decay", "Time-lost Battalion", "Sylvestris Dusksong", "Old Gloomlurker", "Gharalis the Abyssal", "Kathris the Haunted", "Anara Chillwind", "Elder Minderel", "Tracker Stillwind", "Council of Thorns", "Nythus the Dreambound", "The Wild King" },
             },
         },
     },

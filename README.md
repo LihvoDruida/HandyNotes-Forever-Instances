@@ -26,12 +26,15 @@ with the supplied `WoWForeverInstances.lua` database.
   - Classic-era instances
   - Forever-new instances
   - Separate continent-map and Azeroth/global-map visibility toggles
+- Unified English / Ukrainian instance descriptions.
 - Shows extra tooltip data:
   - recommended level range
   - player count
   - zone / location
   - coordinates
   - wing breakdowns
+  - boss counts
+  - Classic / Forever provenance and update status
   - database notes
 
 
@@ -76,6 +79,31 @@ Additionally, the package now ships a dedicated addon icon:
 - `icon.tga` -> transparent-background addon icon for WoW / addon metadata
 - `icon.png` -> transparent PNG variant
 - `curseforge-icon.png` -> larger transparent PNG for project/media usage
+
+## Forever content classification
+
+The database now separates **content origin** from **availability in Forever** instead of treating every returning instance as "Classic only".
+
+Tooltip labels use three states:
+
+- **Forever • New** — content created for WoW Forever.
+- **Classic • Forever** — Classic-origin content present in Forever with no specific instance-level change currently confirmed.
+- **Classic • Forever • Updated** — Classic-origin content with a confirmed Forever change.
+
+All returning Classic dungeons are marked **Updated** because Forever reworks dungeon boss loot across both old and new dungeons. Molten Core and Onyxia's Lair also carry explicit Forever progression/tier-change notes.
+
+## Unified instance descriptions
+
+Every dungeon and raid now has one concise in-game description in English and Ukrainian. The text is synthesized into a single description per instance; it is intentionally **not split into separate Warcraft Tavern / WoW Handbook descriptions**.
+
+Current catalog coverage:
+
+- 28 dungeons
+- 9 raids
+- 9 Forever-new dungeons
+- 2 Forever-new raids
+
+Published boss counts are stored when available. Barrow Deeps and Hyjal Summit also include the boss rosters currently exposed by Forever's Legacy raid objectives. Unnamed future roadmap raids are not added as map entries until their names and locations are confirmed.
 
 ## Notes on missing coordinates
 

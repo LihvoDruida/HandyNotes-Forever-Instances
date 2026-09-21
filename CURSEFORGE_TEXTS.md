@@ -67,6 +67,22 @@ The addon includes **Auto / Українська / English** language modes. Aut
 
 Settings, tooltip labels, filters, coordinates, player counts, TomTom instructions, wing labels, and database notes are localized. Zone names use the current client map localization when available.
 
+### Classic + Forever status labels
+
+The addon now tracks where an instance originated and how it appears in Forever without duplicating pins:
+
+- **Forever • New** — brand-new Forever content
+- **Classic • Forever** — returning Classic content
+- **Classic • Forever • Updated** — returning content with a confirmed Forever change
+
+Classic dungeons are marked Updated because Forever reworks dungeon boss loot across both returning and new dungeons. Molten Core and Onyxia's Lair include their confirmed Forever progression changes.
+
+### Unified descriptions
+
+All **28 dungeons** and **9 raids** include concise English and Ukrainian descriptions. Descriptions are merged into one clean in-game summary per instance rather than being separated by source. Published boss counts are included where available, and the current Barrow Deeps / Hyjal Summit boss rosters are stored from Forever's Legacy raid objectives.
+
+Unnamed future roadmap raids are intentionally not placed on the map until a confirmed name and location are published.
+
 ### Client support
 
 This addon is packaged **only for WoW Forever** and ships only with:
@@ -102,3 +118,11 @@ It is not intended for Retail or other Classic branches.
 - Added automated CurseForge releases through GitHub Actions and BigWigs Packager.
 - Added pre-release validation for Lua syntax, Forever-only TOC structure, package files, and tag/version consistency.
 - Added local release wrapper and dedicated release documentation.
+
+## Release notes for 1.0.9
+
+- Added unified descriptions for every dungeon and raid.
+- Added Classic / Forever / Updated provenance labels.
+- Added published boss counts and new Forever raid boss rosters.
+- Added confirmed Forever changes for Molten Core and Onyxia's Lair.
+- Added description visibility setting.
