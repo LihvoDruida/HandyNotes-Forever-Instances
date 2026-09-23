@@ -2,7 +2,7 @@
 
 ## Project title
 
-HandyNotes: Forever Instances
+Forever Instances — Dungeon & Raid Pins for HandyNotes
 
 ## Short summary
 
@@ -10,7 +10,7 @@ A WoW Forever-only HandyNotes plugin that marks dungeon and raid entrances on th
 
 ## Short description
 
-HandyNotes: Forever Instances adds dungeon and raid entrance markers to your map in **World of Warcraft: Forever**.
+Forever Instances — Dungeon & Raid Pins for HandyNotes adds dungeon and raid entrance markers to your map in **World of Warcraft: Forever**.
 
 It is built specifically for the **Forever client**, uses a consolidated database for both classic-era and Forever-new instances, supports optional **TomTom** waypoints, and keeps clear icon colors for raids, normal dungeons, and Forever-only dungeons.
 
@@ -18,7 +18,7 @@ It is built specifically for the **Forever client**, uses a consolidated databas
 
 ### Overview
 
-**HandyNotes: Forever Instances** is a **WoW Forever-only** map plugin for **HandyNotes**.
+**Forever Instances — Dungeon & Raid Pins for HandyNotes** is a **WoW Forever-only** map plugin for **HandyNotes**.
 It shows dungeon and raid entrances on zone maps, continent maps, and the minimap, with separate control for the Azeroth/global map.
 
 This version was rebuilt from the supplied classic HandyNotes dungeon addon and upgraded to use a new consolidated Forever instance database.
@@ -91,7 +91,7 @@ Unnamed future roadmap raids are intentionally not placed on the map until a con
 
 This addon is packaged **only for WoW Forever** and ships only with:
 
-`HandyNotes_ForeverInstances_Camelot.toc`
+`Forever Instances_Camelot.toc`
 
 It is not intended for Retail or other Classic branches.
 

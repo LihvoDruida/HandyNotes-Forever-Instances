@@ -2,7 +2,7 @@
 
 Copyright © 2026. All rights reserved.
 
-HandyNotes: Forever Instances, including its original code, database integration,
+Forever Instances — Dungeon & Raid Pins for HandyNotes, including its original code, database integration,
 WoW Forever-specific compatibility work, documentation, and project-specific
 assets, may not be copied, modified, redistributed, sublicensed, sold, or used
 as the basis of another distributed work without explicit permission from the

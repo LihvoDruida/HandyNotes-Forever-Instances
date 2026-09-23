@@ -37,7 +37,7 @@ lua_syntax() {
 
 release_layout() {
     local required=(
-        "HandyNotes_ForeverInstances_Camelot.toc"
+        "Forever Instances_Camelot.toc"
         "Core.lua"
         "Database.lua"
         "LegacyFallback.lua"
@@ -70,7 +70,7 @@ release_layout() {
 }
 
 toc_forever_only() {
-    local toc="HandyNotes_ForeverInstances_Camelot.toc"
+    local toc="Forever Instances_Camelot.toc"
     grep -Eq '^## Interface:[[:space:]]*16001([[:space:]]*)$' "$toc" || {
         echo "Forever TOC must use Interface 16001" >&2
         return 1
@@ -83,7 +83,7 @@ toc_forever_only() {
         return 1
     fi
 
-    [[ "$(basename "$(find . -maxdepth 1 -name '*.toc' -print -quit)")" == "HandyNotes_ForeverInstances_Camelot.toc" ]]
+    [[ "$(basename "$(find . -maxdepth 1 -name '*.toc' -print -quit)")" == "Forever Instances_Camelot.toc" ]]
 }
 
 release_version_applied() {
@@ -93,7 +93,7 @@ release_version_applied() {
     [[ -z "$tag" ]] && return 0
 
     local version
-    version=$(sed -n 's/^## Version:[[:space:]]*//p' HandyNotes_ForeverInstances_Camelot.toc | head -n1 | tr -d '\r')
+    version=$(sed -n 's/^## Version:[[:space:]]*//p' "Forever Instances_Camelot.toc" | head -n1 | tr -d '\r')
     if [[ -z "$version" ]]; then
         echo "TOC version is missing" >&2
         return 1
@@ -112,7 +112,7 @@ release_version_applied() {
 
 changelog_matches_version() {
     local version
-    version=$(sed -n 's/^## Version:[[:space:]]*v\{0,1\}//p' HandyNotes_ForeverInstances_Camelot.toc | head -n1 | tr -d '\r')
+    version=$(sed -n 's/^## Version:[[:space:]]*v\{0,1\}//p' "Forever Instances_Camelot.toc" | head -n1 | tr -d '\r')
     if [[ -z "$version" ]]; then
         echo "TOC version is missing" >&2
         return 1
@@ -125,7 +125,7 @@ changelog_matches_version() {
 }
 
 pkgmeta_valid() {
-    grep -Eq '^package-as:[[:space:]]*HandyNotes_ForeverInstances$' .pkgmeta || return 1
+    grep -Eq '^package-as:[[:space:]]*Forever Instances$' .pkgmeta || return 1
     grep -Eq '^manual-changelog:' .pkgmeta || return 1
     grep -Eq '^[[:space:]]+-[[:space:]]+\.github$' .pkgmeta || return 1
 }
@@ -180,7 +180,7 @@ dungeon_territory_data() {
 local ns = {}
 local chunk, err = loadfile("Database.lua")
 assert(chunk, err)
-chunk("HandyNotes_ForeverInstances", ns)
+chunk("Forever Instances", ns)
 
 local counts = { Alliance = 0, Horde = 0, Contested = 0 }
 local total = 0
@@ -220,7 +220,7 @@ local ns = {}
 for _, path in ipairs({ "Localizations/enUS.lua", "Localizations/ukUA.lua" }) do
     local chunk, err = loadfile(path)
     assert(chunk, err)
-    chunk("HandyNotes_ForeverInstances", ns)
+    chunk("Forever Instances", ns)
 end
 
 local required = {

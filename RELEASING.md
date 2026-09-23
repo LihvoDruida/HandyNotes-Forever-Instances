@@ -1,3 +1,10 @@
+# Addon package identity
+
+- Display/project name: **Forever Instances — Dungeon & Raid Pins for HandyNotes**
+- Installed addon folder: `Forever Instances`
+- TOC: `Forever Instances_Camelot.toc`
+- BigWigs package name: `Forever Instances`
+
 # Release workflow
 
 The release system mirrors the workflow used by Max Camera Distance:

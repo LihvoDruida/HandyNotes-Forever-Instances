@@ -1,15 +1,21 @@
-# HandyNotes: Forever Instances
+# Forever Instances — Dungeon & Raid Pins for HandyNotes
 
-**HandyNotes: Forever Instances** is a **World of Warcraft: Forever only** plugin
+**Forever Instances — Dungeon & Raid Pins for HandyNotes** is a **World of Warcraft: Forever only** plugin
 for **HandyNotes** that marks dungeon and raid entrances on the map and minimap.
 
 This build was rebuilt from the supplied classic HandyNotes base addon and merged
 with the supplied `WoWForeverInstances.lua` database.
 
+## Addon identity
+
+- CurseForge / display name: **Forever Instances — Dungeon & Raid Pins for HandyNotes**
+- Installed addon folder: `Forever Instances`
+- Forever TOC: `Forever Instances_Camelot.toc`
+
 ## Supported client
 
 - **WoW Forever only**
-- Loads only through `HandyNotes_ForeverInstances_Camelot.toc`
+- Loads only through `Forever Instances_Camelot.toc`
 - Does **not** ship Retail / Classic / Wrath / Cata / MoP TOC files
 
 ## Features
@@ -143,7 +149,7 @@ names remain in `Database.lua` and are shown exactly as stored there.
 
 ## Files included
 
-- `HandyNotes_ForeverInstances_Camelot.toc`
+- `Forever Instances_Camelot.toc`
 - `Localizations/enUS.lua` and `Localizations/ukUA.lua`
 - `Database.lua`
 - `LegacyFallback.lua`

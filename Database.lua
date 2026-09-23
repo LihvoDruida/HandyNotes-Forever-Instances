@@ -1,4 +1,4 @@
--- HandyNotes_ForeverInstances - WoW Forever only
+-- Forever Instances - WoW Forever only
 -- Data source: user-provided WoWForeverInstances.lua
 local addonName, ns = ...
 

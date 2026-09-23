@@ -1,4 +1,4 @@
-package-as: HandyNotes_ForeverInstances
+package-as: Forever Instances
 
 enable-nolib-creation: no
 
@@ -16,9 +16,9 @@ ignore:
   - .release
   - release.sh
   - check_all.sh
-  - tools
-  - cliff.toml
   - RELEASING.md
+  - cliff.toml
+  - tools
   - curseforge-icon.png
   - icon.png
   - .DS_Store

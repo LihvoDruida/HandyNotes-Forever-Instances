@@ -1,4 +1,4 @@
--- HandyNotes_ForeverInstances - Ukrainian localization
+-- Forever Instances - Ukrainian localization
 -- Назви підземель, рейдів і крил навмисно НЕ перекладаються тут.
 local addonName, ns = ...
 

@@ -60,7 +60,7 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
     exit 1
 fi
 
-CURRENT_VERSION=$(sed -n 's/^## Version:[[:space:]]*v\{0,1\}//p' HandyNotes_ForeverInstances_Camelot.toc | head -n1 | tr -d '\r')
+CURRENT_VERSION=$(sed -n 's/^## Version:[[:space:]]*v\{0,1\}//p' "Forever Instances_Camelot.toc" | head -n1 | tr -d '\r')
 echo "Preparing release: ${CURRENT_VERSION:-unknown} -> $TAG"
 
 python3 tools/set_version.py "$TAG"
@@ -77,16 +77,16 @@ test -s CHANGELOG.md
 GITHUB_REF_NAME="$TAG" bash ./check_all.sh
 
 # Only release-controlled files should have changed at this point.
-UNEXPECTED=$(git status --porcelain | awk '{print $2}' | grep -Ev '^(HandyNotes_ForeverInstances_Camelot\.toc|CHANGELOG\.md)$' || true)
+UNEXPECTED=$(git status --porcelain --untracked-files=all | sed -E 's/^.. //' | grep -Ev '^("?Forever Instances_Camelot\.toc"?|CHANGELOG\.md)$' || true)
 if [[ -n "$UNEXPECTED" ]]; then
     echo "Unexpected files changed during release preparation:" >&2
     echo "$UNEXPECTED" | sed 's/^/  /' >&2
     exit 1
 fi
 
-git add HandyNotes_ForeverInstances_Camelot.toc CHANGELOG.md
+git add "Forever Instances_Camelot.toc" CHANGELOG.md
 git commit -m "chore(release): prepare for $TAG"
-git tag -a "$TAG" -m "HandyNotes: Forever Instances $TAG"
+git tag -a "$TAG" -m "Forever Instances — Dungeon & Raid Pins for HandyNotes $TAG"
 
 echo ""
 echo "Prepared $TAG"

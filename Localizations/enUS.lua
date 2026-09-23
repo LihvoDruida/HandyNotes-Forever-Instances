@@ -1,4 +1,4 @@
--- HandyNotes_ForeverInstances - English localization (default)
+-- Forever Instances - English localization (default)
 -- Canonical dungeon/raid/wing names are intentionally NOT localized here.
 local addonName, ns = ...
 

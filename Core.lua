@@ -1,7 +1,7 @@
 local addonName, ns = ...
 
 local PLUGIN_NAME = "ForeverInstances"
-local ADDON_TITLE = "HandyNotes: Forever Instances"
+local ADDON_TITLE = "Forever Instances — Dungeon & Raid Pins for HandyNotes"
 
 local WORLD_MAP_ID = 947
 if C_Map and type(C_Map.GetFallbackWorldMapID) == "function" then
@@ -17,9 +17,10 @@ end
 --   * Forever-new dungeons: dedicated blue/orange portal
 -- Forever raids intentionally remain green so icon color continues to identify
 -- instance type first, while only brand-new Forever dungeons get the new style.
-local ICON_DUNGEON = "Interface\\AddOns\\HandyNotes_ForeverInstances\\dungeon.tga"
-local ICON_RAID = "Interface\\AddOns\\HandyNotes_ForeverInstances\\raid.tga"
-local ICON_FOREVER_DUNGEON = "Interface\\AddOns\\HandyNotes_ForeverInstances\\forever_dungeon.tga"
+local ASSET_ROOT = "Interface\\AddOns\\" .. addonName .. "\\"
+local ICON_DUNGEON = ASSET_ROOT .. "dungeon.tga"
+local ICON_RAID = ASSET_ROOT .. "raid.tga"
+local ICON_FOREVER_DUNGEON = ASSET_ROOT .. "forever_dungeon.tga"
 
 local HandyNotes = LibStub and LibStub("AceAddon-3.0", true) and LibStub("AceAddon-3.0"):GetAddon("HandyNotes", true)
 local AceDB = LibStub and LibStub("AceDB-3.0", true)
@@ -1090,7 +1091,7 @@ local function initialize()
     applyLegacyFallback()
     rebuildNodes()
 
-    local aceDB = AceDB:New("HandyNotes_ForeverInstancesDB", defaults, true)
+    local aceDB = AceDB:New("ForeverInstancesDB", defaults, true)
     db = aceDB.profile
 
     -- v1.0.10 localization migration: only explicit language databases are
