@@ -1,9 +1,9 @@
 # Addon package identity
 
 - Display/project name: **Forever Instances — Dungeon & Raid Pins for HandyNotes**
-- Installed addon folder: `Forever Instances`
-- TOC: `Forever Instances_Camelot.toc`
-- BigWigs package name: `Forever Instances`
+- Installed addon folder: `Forever_Instances`
+- TOC: `Forever_Instances_Camelot.toc`
+- BigWigs package name: `Forever_Instances`
 
 # Release workflow
 

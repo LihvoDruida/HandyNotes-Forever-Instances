@@ -54,7 +54,7 @@ All validation stages pass for v1.0.10.
 ## Release-version authority
 
 - The version supplied by the release tag is authoritative.
-- CI rewrites `## Version` in `Forever Instances_Camelot.toc` from `GITHUB_REF_NAME` before validation and packaging.
+- CI rewrites `## Version` in `Forever_Instances_Camelot.toc` from `GITHUB_REF_NAME` before validation and packaging.
 - Two-part versions such as `v1.0` and multi-part versions such as `v1.0.10` are accepted.
 - If the matching changelog section is absent, CI generates it from the current tag with `git-cliff --current --prepend CHANGELOG.md`.
 - The pre-release gate validates the rewritten version instead of requiring the repository TOC value to match the tag before preparation.

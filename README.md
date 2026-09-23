@@ -9,13 +9,13 @@ with the supplied `WoWForeverInstances.lua` database.
 ## Addon identity
 
 - CurseForge / display name: **Forever Instances — Dungeon & Raid Pins for HandyNotes**
-- Installed addon folder: `Forever Instances`
-- Forever TOC: `Forever Instances_Camelot.toc`
+- Installed addon folder: `Forever_Instances`
+- Forever TOC: `Forever_Instances_Camelot.toc`
 
 ## Supported client
 
 - **WoW Forever only**
-- Loads only through `Forever Instances_Camelot.toc`
+- Loads only through `Forever_Instances_Camelot.toc`
 - Does **not** ship Retail / Classic / Wrath / Cata / MoP TOC files
 
 ## Features
@@ -149,7 +149,7 @@ names remain in `Database.lua` and are shown exactly as stored there.
 
 ## Files included
 
-- `Forever Instances_Camelot.toc`
+- `Forever_Instances_Camelot.toc`
 - `Localizations/enUS.lua` and `Localizations/ukUA.lua`
 - `Database.lua`
 - `LegacyFallback.lua`

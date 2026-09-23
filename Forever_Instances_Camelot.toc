@@ -10,7 +10,7 @@
 ## X-Game-Type: camelot
 ## X-Localizations: enUS, ukUA
 ## X-License: All Rights Reserved
-## IconTexture: Interface\AddOns\Forever Instances\icon
+## IconTexture: Interface\AddOns\Forever_Instances\icon
 
 Localizations\enUS.lua
 Localizations\ukUA.lua

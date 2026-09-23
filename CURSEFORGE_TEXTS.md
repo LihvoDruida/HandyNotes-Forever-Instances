@@ -91,7 +91,7 @@ Unnamed future roadmap raids are intentionally not placed on the map until a con
 
 This addon is packaged **only for WoW Forever** and ships only with:
 
-`Forever Instances_Camelot.toc`
+`Forever_Instances_Camelot.toc`
 
 It is not intended for Retail or other Classic branches.
 

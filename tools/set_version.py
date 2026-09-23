@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TOC = ROOT / "Forever Instances_Camelot.toc"
+TOC = ROOT / "Forever_Instances_Camelot.toc"
 VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+)+)$")
 TOC_VERSION_RE = re.compile(r"^## Version:\s*(.+?)\s*$", re.MULTILINE)
 
