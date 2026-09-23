@@ -21,6 +21,7 @@ local ASSET_ROOT = "Interface\\AddOns\\" .. addonName .. "\\"
 local ICON_DUNGEON = ASSET_ROOT .. "dungeon.tga"
 local ICON_RAID = ASSET_ROOT .. "raid.tga"
 local ICON_FOREVER_DUNGEON = ASSET_ROOT .. "forever_dungeon.tga"
+local ICON_APPROACH = ASSET_ROOT .. "approach_flag.tga"
 
 local HandyNotes = LibStub and LibStub("AceAddon-3.0", true) and LibStub("AceAddon-3.0"):GetAddon("HandyNotes", true)
 local AceDB = LibStub and LibStub("AceDB-3.0", true)
@@ -380,6 +381,52 @@ local function addNode(mapID, coord, instance)
     table.insert(node.instances, instance)
 end
 
+
+local function makeApproachMarker(instance)
+    if type(instance) ~= "table" or type(instance.approach) ~= "table" then
+        return nil
+    end
+
+    local approach = instance.approach
+    if type(approach.x) ~= "number" or type(approach.y) ~= "number" then
+        return nil
+    end
+
+    local marker = {
+        name = instance.name,
+        aliases = instance.aliases,
+        zone = approach.zone or instance.zone,
+        parentZone = approach.parentZone or instance.parentZone,
+        location = approach.location or instance.location,
+        territory = instance.territory,
+        x = approach.x,
+        y = approach.y,
+        players = instance.players,
+        maxPlayers = instance.maxPlayers,
+        levelMin = instance.levelMin,
+        levelMax = instance.levelMax,
+        bossCount = instance.bossCount,
+        origin = instance.origin,
+        availableInForever = instance.availableInForever,
+        foreverStatus = instance.foreverStatus,
+        isForeverNew = instance.isForeverNew,
+        descriptionKey = instance.descriptionKey,
+        foreverChangeKey = instance.foreverChangeKey,
+        noteKey = instance.noteKey,
+        wings = instance.wings,
+        coordStatus = approach.source and "approach" or instance.coordStatus,
+        coordSource = approach.source or instance.coordSource,
+        _kind = instance._kind,
+        _group = instance._group,
+        _id = tostring(instance._id or instance.name or "instance") .. "_approach",
+        isApproachMarker = true,
+        approachLabel = approach.label,
+        targetInstance = instance,
+    }
+
+    return marker
+end
+
 local function rebuildNodes()
     wipe(nodes)
     wipe(worldNodes)
@@ -400,6 +447,22 @@ local function rebuildNodes()
                             instance._mapID = mapID
                             addNode(mapID, packCoord(instance.x, instance.y), instance)
                             addAncestorRelation(mapID)
+
+                            local approachMarker = makeApproachMarker(instance)
+                            if approachMarker then
+                                local approachMapID = resolveMapID(approachMarker, nil)
+                                if approachMapID then
+                                    approachMarker._mapID = approachMapID
+                                    addNode(approachMapID, packCoord(approachMarker.x, approachMarker.y), approachMarker)
+                                    addAncestorRelation(approachMapID)
+                                else
+                                    unresolved[approachMarker._id] = {
+                                        reason = "approach_map_unresolved",
+                                        zone = approachMarker.zone,
+                                        name = approachMarker.name,
+                                    }
+                                end
+                            end
                         else
                             unresolved[id] = {
                                 reason = "map_unresolved",
@@ -504,10 +567,13 @@ end
 local function nodeIcon(node)
     local hasRaid = false
     local hasForeverDungeon = false
+    local hasApproach = false
 
     for _, instance in ipairs(node.instances or {}) do
         if nodeVisible(instance) then
-            if instance._kind == "Raid" then
+            if instance.isApproachMarker then
+                hasApproach = true
+            elseif instance._kind == "Raid" then
                 hasRaid = true
             elseif instance._kind == "Dungeon"
                 and (instance.isForeverNew == true or instance._group == "Forever") then
@@ -516,7 +582,9 @@ local function nodeIcon(node)
         end
     end
 
-    if hasRaid then
+    if hasApproach then
+        return ICON_APPROACH
+    elseif hasRaid then
         return ICON_RAID
     elseif hasForeverDungeon then
         return ICON_FOREVER_DUNGEON
@@ -823,6 +891,7 @@ local function renderInstanceTooltip(tooltip, instance)
         provenanceLabel(instance),
         instance._kind == "Raid" and L("RAID") or L("DUNGEON"),
     }
+    if instance.isApproachMarker then table.insert(meta, L("APPROACH_MARKER")) end
     local levels = levelText(instance)
     if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
     local players = playerText(instance)
@@ -849,7 +918,17 @@ local function renderInstanceTooltip(tooltip, instance)
         if instance.coordFallbackFromLegacy then
             coords = coords .. L("LEGACY_FALLBACK")
         end
-        addTooltipDetail(tooltip, L("ENTRANCE_LABEL"), coords)
+        local coordLabel = instance.isApproachMarker and L("APPROACH_LABEL") or L("ENTRANCE_LABEL")
+        addTooltipDetail(tooltip, coordLabel, coords)
+
+        if instance.isApproachMarker and type(instance.targetInstance) == "table"
+            and type(instance.targetInstance.x) == "number" and type(instance.targetInstance.y) == "number" then
+            addTooltipDetail(tooltip, L("INSTANCE_ENTRANCE_LABEL"), string.format("%.1f, %.1f", instance.targetInstance.x, instance.targetInstance.y))
+        end
+    end
+
+    if instance.isApproachMarker and type(instance.approachLabel) == "string" and instance.approachLabel ~= "" then
+        addTooltipDetail(tooltip, L("LOCATION_LABEL"), instance.approachLabel)
     end
 
     if db.showDescriptions then

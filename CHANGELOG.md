@@ -1,3 +1,10 @@
+## v1.0.11
+
+- add green-flag approach markers for instances with separate approach coordinates
+- unify approach tooltip rendering with the main tooltip system
+- add approach marker support for Maraudon and Razorfen Downs
+- refresh marker verification and keep unresolved cases on the main verified entrance only
+
 # Changelog
 
 All notable changes to this project will be documented in this file.

@@ -26,7 +26,7 @@ local addonName, ns = ...
 --   * Dungeon territory is normalized as Alliance / Horde / Contested for tooltip faction context.
 
 local DB = {
-    version = 3,
+    version = 4,
     coordinateUnit = "percent",
 
     Dungeons = {
@@ -290,6 +290,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "cross_checked",
                 coordSource = "wowhandbook",
+                approach = {
+                    x = 43.0,
+                    y = 95.0,
+                    label = "Approach path / outer ravine",
+                    source = "classic_guide_cross_check",
+                },
                 noteKey = "INSTANCE_RAZORFEN_DOWNS_NOTE",
                 descriptionKey = "INSTANCE_RAZORFEN_DOWNS_DESCRIPTION",
                 bossCount = 6,

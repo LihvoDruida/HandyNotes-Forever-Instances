@@ -73,3 +73,10 @@ All validation stages pass for v1.0.10.
 
 
 - Blackfathom Deeps is validated as **Contested** because the resolved entrance is in The Zoram Strand, Ashenvale; this intentionally differs from current listings that map it to Darkshore / Alliance territory.
+
+
+## Approach markers
+
+- Added a dedicated green-flag marker (`approach_flag.tga`) for separate outer-access / approach coordinates.
+- Current explicit approach markers: Maraudon exterior approach, Razorfen Downs outer ravine approach.
+- Remaining instances keep only their verified entrance marker unless a second checked approach coordinate is available.
