@@ -1,11 +1,22 @@
-## v1.0.11
-
-- add green-flag approach markers for instances with separate approach coordinates
-- unify approach tooltip rendering with the main tooltip system
-- add approach marker support for Maraudon and Razorfen Downs
-- refresh marker verification and keep unresolved cases on the main verified entrance only
-
 # Changelog
+
+## [1.0.12] - 2026-09-23
+
+### 🚀 New Features
+- Add a mandatory `entrance = { x, y }` block to every dungeon and raid record.
+- Add dedicated green-flag rendering for verified entrance/access points that differ from the primary instance marker.
+- Add a newly verified Hall of Thanes portal at `43.5, 52.0`.
+
+### 🐛 Bug Fixes
+- Suppress entrance flags when coordinates are unknown (`0,0`) or duplicate the main instance point.
+- Remove the unverified Razorfen Downs approach marker.
+- Keep separate verified access points for Blackfathom Deeps, Gnomeregan, Uldaman, Maraudon, Temple of Atal'Hakkar, Stratholme, and Hall of Thanes.
+- Keep Barrow Deeps and Hyjal Summit unresolved instead of inventing coordinates.
+
+### 🛠️ Refactor
+- Separate primary instance coordinates from optional entrance/access coordinates throughout the data and rendering layers.
+- Rename the approach marker asset and runtime model to entrance markers.
+- Expand release validation for the 37-record entrance contract.
 
 All notable changes to this project will be documented in this file.
 

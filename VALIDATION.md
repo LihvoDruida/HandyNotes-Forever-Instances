@@ -1,4 +1,4 @@
-# Validation report — v1.0.10
+# Validation report — v1.0.12
 
 ## Localization architecture
 
@@ -41,7 +41,7 @@
 - TOC/tag/changelog version consistency;
 - BigWigs Packager metadata.
 
-All validation stages pass for v1.0.10.
+Validation is configured for the v1.0.12 data contract and is executed in CI where Lua 5.1/luac is available.
 
 ## GitHub / CurseForge workflow compatibility
 
@@ -56,10 +56,9 @@ All validation stages pass for v1.0.10.
 - The version supplied by the release tag is authoritative.
 - CI rewrites `## Version` in `Forever_Instances_Camelot.toc` from `GITHUB_REF_NAME` before validation and packaging.
 - Two-part versions such as `v1.0` and multi-part versions such as `v1.0.10` are accepted.
-- If the matching changelog section is absent, CI generates it from the current tag with `git-cliff --current --prepend CHANGELOG.md`.
+- CI discards any pre-built changelog and regenerates `CHANGELOG.md` from Git history for the requested tag.
 - The pre-release gate validates the rewritten version instead of requiring the repository TOC value to match the tag before preparation.
 
-- Release workflow changelog generation uses `git-cliff --current --latest --prepend CHANGELOG.md`, avoiding the git-cliff 2.14.x prepend argument error while still selecting the checked-out tag.
 
 - `CHANGELOG.md` is regenerated from Git history for every release and is never trusted as a pre-built input file.
 ## Tooltip / dungeon territory validation
@@ -75,8 +74,13 @@ All validation stages pass for v1.0.10.
 - Blackfathom Deeps is validated as **Contested** because the resolved entrance is in The Zoram Strand, Ashenvale; this intentionally differs from current listings that map it to Darkshore / Alliance territory.
 
 
-## Approach markers
 
-- Added a dedicated green-flag marker (`approach_flag.tga`) for separate outer-access / approach coordinates.
-- Current explicit approach markers: Maraudon exterior approach, Razorfen Downs outer ravine approach.
-- Remaining instances keep only their verified entrance marker unless a second checked approach coordinate is available.
+## Coordinate / entrance audit
+
+- Database contains 37 top-level records: 28 dungeons and 9 raids.
+- Every record has an explicit `entrance = { x, y }` block.
+- `entrance = { x = 0.0, y = 0.0 }` means unknown or identical to the main point.
+- Zero/unknown entrance blocks never create a green flag marker.
+- A defensive duplicate check also suppresses a non-zero entrance if it exactly matches the main point on the same map.
+- Distinct verified entrance/access markers currently exist for Blackfathom Deeps, Gnomeregan, Uldaman back entrance, Maraudon Stone Door, Temple of Atal'Hakkar, Stratholme Service Gate, and Hall of Thanes.
+- Barrow Deeps and Hyjal Summit keep unknown main coordinates and a zero entrance block until exact coordinates are published.

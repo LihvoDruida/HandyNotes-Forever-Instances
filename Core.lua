@@ -21,7 +21,7 @@ local ASSET_ROOT = "Interface\\AddOns\\" .. addonName .. "\\"
 local ICON_DUNGEON = ASSET_ROOT .. "dungeon.tga"
 local ICON_RAID = ASSET_ROOT .. "raid.tga"
 local ICON_FOREVER_DUNGEON = ASSET_ROOT .. "forever_dungeon.tga"
-local ICON_APPROACH = ASSET_ROOT .. "approach_flag.tga"
+local ICON_ENTRANCE = ASSET_ROOT .. "entrance_flag.tga"
 
 local HandyNotes = LibStub and LibStub("AceAddon-3.0", true) and LibStub("AceAddon-3.0"):GetAddon("HandyNotes", true)
 local AceDB = LibStub and LibStub("AceDB-3.0", true)
@@ -62,6 +62,9 @@ local mapNameIndex = nil
 local ancestorNameCache = {}
 local initialized = false
 local waypointHandles = {}
+local atlasMapKeyCache = {}
+local atlasIndexBuilt = false
+local atlasNameIndex = {}
 
 local function activeLanguage()
     if db and db.language == "ukUA" then
@@ -382,25 +385,40 @@ local function addNode(mapID, coord, instance)
 end
 
 
-local function makeApproachMarker(instance)
-    if type(instance) ~= "table" or type(instance.approach) ~= "table" then
+local function hasUsablePoint(x, y)
+    return type(x) == "number" and type(y) == "number" and x > 0 and y > 0
+end
+
+local function makeEntranceMarker(instance)
+    if type(instance) ~= "table" or type(instance.entrance) ~= "table" then
         return nil
     end
 
-    local approach = instance.approach
-    if type(approach.x) ~= "number" or type(approach.y) ~= "number" then
+    local entrance = instance.entrance
+    if not hasUsablePoint(entrance.x, entrance.y) then
         return nil
     end
 
-    local marker = {
+    -- The database contract uses 0,0 when the entrance is unknown or when it
+    -- is identical to the main instance point. Guard against accidental
+    -- duplicates here as well so two icons never stack on the same point.
+    local entranceZone = entrance.zone or instance.zone
+    if entranceZone == instance.zone
+        and hasUsablePoint(instance.x, instance.y)
+        and math.abs(entrance.x - instance.x) < 0.01
+        and math.abs(entrance.y - instance.y) < 0.01 then
+        return nil
+    end
+
+    return {
         name = instance.name,
         aliases = instance.aliases,
-        zone = approach.zone or instance.zone,
-        parentZone = approach.parentZone or instance.parentZone,
-        location = approach.location or instance.location,
-        territory = instance.territory,
-        x = approach.x,
-        y = approach.y,
+        zone = entranceZone,
+        parentZone = entrance.parentZone or instance.parentZone,
+        location = entrance.location or instance.location,
+        territory = entrance.territory or instance.territory,
+        x = entrance.x,
+        y = entrance.y,
         players = instance.players,
         maxPlayers = instance.maxPlayers,
         levelMin = instance.levelMin,
@@ -414,17 +432,16 @@ local function makeApproachMarker(instance)
         foreverChangeKey = instance.foreverChangeKey,
         noteKey = instance.noteKey,
         wings = instance.wings,
-        coordStatus = approach.source and "approach" or instance.coordStatus,
-        coordSource = approach.source or instance.coordSource,
+        coordStatus = "entrance",
+        coordSource = entrance.source or instance.coordSource,
         _kind = instance._kind,
         _group = instance._group,
-        _id = tostring(instance._id or instance.name or "instance") .. "_approach",
-        isApproachMarker = true,
-        approachLabel = approach.label,
+        _id = tostring(instance._id or instance.name or "instance") .. "_entrance",
+        isEntranceMarker = true,
+        entranceLabelKey = entrance.labelKey,
+        entranceLabel = entrance.label,
         targetInstance = instance,
     }
-
-    return marker
 end
 
 local function rebuildNodes()
@@ -441,28 +458,15 @@ local function rebuildNodes()
             for id, instance in pairs(group or {}) do
                 if type(instance) == "table" then
                     local legacy = fallbackBucket and fallbackBucket[id] or nil
-                    if type(instance.x) == "number" and type(instance.y) == "number" then
+
+                    -- Main instance point. A 0,0 point is intentionally treated
+                    -- as unknown and never rendered.
+                    if hasUsablePoint(instance.x, instance.y) then
                         local mapID = resolveMapID(instance, legacy)
                         if mapID then
                             instance._mapID = mapID
                             addNode(mapID, packCoord(instance.x, instance.y), instance)
                             addAncestorRelation(mapID)
-
-                            local approachMarker = makeApproachMarker(instance)
-                            if approachMarker then
-                                local approachMapID = resolveMapID(approachMarker, nil)
-                                if approachMapID then
-                                    approachMarker._mapID = approachMapID
-                                    addNode(approachMapID, packCoord(approachMarker.x, approachMarker.y), approachMarker)
-                                    addAncestorRelation(approachMapID)
-                                else
-                                    unresolved[approachMarker._id] = {
-                                        reason = "approach_map_unresolved",
-                                        zone = approachMarker.zone,
-                                        name = approachMarker.name,
-                                    }
-                                end
-                            end
                         else
                             unresolved[id] = {
                                 reason = "map_unresolved",
@@ -476,6 +480,26 @@ local function rebuildNodes()
                             zone = instance.zone,
                             name = instance.name,
                         }
+                    end
+
+                    -- Entrance points are independent from the main point. The
+                    -- database stores 0,0 when the entrance is unknown or when
+                    -- it would duplicate the main instance point. Those records
+                    -- intentionally produce no green flag marker.
+                    local entranceMarker = makeEntranceMarker(instance)
+                    if entranceMarker then
+                        local entranceMapID = resolveMapID(entranceMarker, nil)
+                        if entranceMapID then
+                            entranceMarker._mapID = entranceMapID
+                            addNode(entranceMapID, packCoord(entranceMarker.x, entranceMarker.y), entranceMarker)
+                            addAncestorRelation(entranceMapID)
+                        else
+                            unresolved[entranceMarker._id] = {
+                                reason = "entrance_map_unresolved",
+                                zone = entranceMarker.zone,
+                                name = entranceMarker.name,
+                            }
+                        end
                     end
                 end
             end
@@ -567,12 +591,12 @@ end
 local function nodeIcon(node)
     local hasRaid = false
     local hasForeverDungeon = false
-    local hasApproach = false
+    local hasEntrance = false
 
     for _, instance in ipairs(node.instances or {}) do
         if nodeVisible(instance) then
-            if instance.isApproachMarker then
-                hasApproach = true
+            if instance.isEntranceMarker then
+                hasEntrance = true
             elseif instance._kind == "Raid" then
                 hasRaid = true
             elseif instance._kind == "Dungeon"
@@ -582,8 +606,8 @@ local function nodeIcon(node)
         end
     end
 
-    if hasApproach then
-        return ICON_APPROACH
+    if hasEntrance then
+        return ICON_ENTRANCE
     elseif hasRaid then
         return ICON_RAID
     elseif hasForeverDungeon then
@@ -791,6 +815,118 @@ function pluginHandler:GetNodes2(uiMapID, isMinimapUpdate)
     return iterNodes, state, nil
 end
 
+local function atlasAvailable()
+    return type(_G.AtlasMaps) == "table"
+        and type(_G.Atlas_Refresh) == "function"
+        and type(_G.Atlas_Toggle) == "function"
+end
+
+local function atlasNamesForInstance(instance)
+    local result, seen = {}, {}
+    local function add(value)
+        if type(value) ~= "string" or value == "" then return end
+        local key = normalizeName(value)
+        if key == "" or seen[key] then return end
+        seen[key] = true
+        table.insert(result, value)
+    end
+
+    local canonical = instance.isEntranceMarker and instance.targetInstance or instance
+    add(canonical and canonical.name)
+    for _, alias in ipairs((canonical and canonical.aliases) or {}) do add(alias) end
+    for _, alias in ipairs((canonical and canonical.atlas and canonical.atlas.atlasNames) or {}) do add(alias) end
+    return result
+end
+
+local function buildAtlasNameIndex()
+    wipe(atlasNameIndex)
+    atlasIndexBuilt = true
+    if not atlasAvailable() then return end
+
+    for mapKey, data in pairs(_G.AtlasMaps) do
+        if type(data) == "table" and type(data.ZoneName) == "table" then
+            local zoneName = data.ZoneName[1]
+            if type(zoneName) == "string" and zoneName ~= "" then
+                local normalized = normalizeName(zoneName)
+                if normalized ~= "" then
+                    atlasNameIndex[normalized] = atlasNameIndex[normalized] or {}
+                    table.insert(atlasNameIndex[normalized], mapKey)
+                end
+            end
+        end
+    end
+end
+
+local function findAtlasMapKey(instance)
+    local canonical = instance and (instance.isEntranceMarker and instance.targetInstance or instance) or nil
+    if not canonical then return nil end
+
+    local cacheKey = canonical._id or canonical.name
+    if cacheKey and atlasMapKeyCache[cacheKey] ~= nil then
+        return atlasMapKeyCache[cacheKey] or nil
+    end
+
+    if not atlasIndexBuilt then buildAtlasNameIndex() end
+    if not atlasAvailable() then
+        if cacheKey then atlasMapKeyCache[cacheKey] = false end
+        return nil
+    end
+
+    local bestKey
+    for _, candidateName in ipairs(atlasNamesForInstance(canonical)) do
+        local normalized = normalizeName(candidateName)
+        local exact = atlasNameIndex[normalized]
+        if exact and exact[1] then
+            bestKey = exact[1]
+            break
+        end
+    end
+
+    -- Multi-wing Atlas entries often append a wing name to the canonical
+    -- instance name (for example Scarlet Monastery). Use a conservative prefix
+    -- match only if there was no exact match.
+    if not bestKey then
+        for _, candidateName in ipairs(atlasNamesForInstance(canonical)) do
+            local wanted = normalizeName(candidateName)
+            if wanted ~= "" then
+                for normalized, keys in pairs(atlasNameIndex) do
+                    if normalized:sub(1, #wanted) == wanted or wanted:sub(1, #normalized) == normalized then
+                        bestKey = keys[1]
+                        break
+                    end
+                end
+            end
+            if bestKey then break end
+        end
+    end
+
+    if cacheKey then atlasMapKeyCache[cacheKey] = bestKey or false end
+    return bestKey
+end
+
+local function openAtlasMap(instance)
+    local mapKey = findAtlasMapKey(instance)
+    if not mapKey or not atlasAvailable() then return false end
+
+    local frame = _G.AtlasFrame
+    if not frame or not frame.IsShown or not frame:IsShown() then
+        local ok = pcall(_G.Atlas_Toggle)
+        if not ok then return false end
+    end
+
+    local ok = pcall(_G.Atlas_Refresh, mapKey)
+    return ok
+end
+
+local function firstVisibleInstance(node)
+    for _, instance in ipairs((node and node.instances) or {}) do
+        if nodeVisible(instance) then
+            return instance.isEntranceMarker and (instance.targetInstance or instance) or instance
+        end
+    end
+    return nil
+end
+
 local function levelText(instance)
     local minLevel, maxLevel = instance.levelMin, instance.levelMax
     if type(minLevel) ~= "number" then return nil end
@@ -891,7 +1027,7 @@ local function renderInstanceTooltip(tooltip, instance)
         provenanceLabel(instance),
         instance._kind == "Raid" and L("RAID") or L("DUNGEON"),
     }
-    if instance.isApproachMarker then table.insert(meta, L("APPROACH_MARKER")) end
+    if instance.isEntranceMarker then table.insert(meta, L("ENTRANCE_MARKER")) end
     local levels = levelText(instance)
     if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
     local players = playerText(instance)
@@ -918,17 +1054,20 @@ local function renderInstanceTooltip(tooltip, instance)
         if instance.coordFallbackFromLegacy then
             coords = coords .. L("LEGACY_FALLBACK")
         end
-        local coordLabel = instance.isApproachMarker and L("APPROACH_LABEL") or L("ENTRANCE_LABEL")
+        local coordLabel = instance.isEntranceMarker and L("ENTRANCE_LABEL") or L("INSTANCE_POINT_LABEL")
         addTooltipDetail(tooltip, coordLabel, coords)
 
-        if instance.isApproachMarker and type(instance.targetInstance) == "table"
+        if instance.isEntranceMarker and type(instance.targetInstance) == "table"
             and type(instance.targetInstance.x) == "number" and type(instance.targetInstance.y) == "number" then
-            addTooltipDetail(tooltip, L("INSTANCE_ENTRANCE_LABEL"), string.format("%.1f, %.1f", instance.targetInstance.x, instance.targetInstance.y))
+            addTooltipDetail(tooltip, L("INSTANCE_POINT_LABEL"), string.format("%.1f, %.1f", instance.targetInstance.x, instance.targetInstance.y))
         end
     end
 
-    if instance.isApproachMarker and type(instance.approachLabel) == "string" and instance.approachLabel ~= "" then
-        addTooltipDetail(tooltip, L("LOCATION_LABEL"), instance.approachLabel)
+    if instance.isEntranceMarker then
+        local accessLabel = instance.entranceLabelKey and optionalL(instance.entranceLabelKey) or instance.entranceLabel
+        if type(accessLabel) == "string" and accessLabel ~= "" then
+            addTooltipDetail(tooltip, L("ACCESS_LABEL"), accessLabel)
+        end
     end
 
     if db.showDescriptions then
@@ -1008,6 +1147,14 @@ function pluginHandler:OnEnter(uiMapID, coord)
         addTooltipLine(tooltip, L("RIGHT_CLICK_TOMTOM"), TOOLTIP_COLORS.action, false)
     end
 
+    local atlasInstance = firstVisibleInstance(node)
+    if atlasInstance and findAtlasMapKey(atlasInstance) then
+        if not (shown > 0 and db.tomtom and TomTom and type(TomTom.AddWaypoint) == "function") then
+            tooltip:AddLine(" ")
+        end
+        addTooltipLine(tooltip, L("SHIFT_CLICK_ATLAS"), TOOLTIP_COLORS.action, false)
+    end
+
     tooltip:Show()
 end
 
@@ -1016,12 +1163,21 @@ function pluginHandler:OnLeave()
 end
 
 function pluginHandler:OnClick(button, down, uiMapID, coord)
-    if button ~= "RightButton" or not down or not db.tomtom or not TomTom or type(TomTom.AddWaypoint) ~= "function" then
-        return
-    end
+    if not down then return end
 
     local node = getDisplayNode(uiMapID, coord)
     if not node then return end
+
+    if button == "LeftButton" and IsShiftKeyDown and IsShiftKeyDown() then
+        local instance = firstVisibleInstance(node)
+        if instance and openAtlasMap(instance) then
+            return
+        end
+    end
+
+    if button ~= "RightButton" or not db.tomtom or not TomTom or type(TomTom.AddWaypoint) ~= "function" then
+        return
+    end
 
     local waypointMapID = uiMapID
     local waypointCoord = coord
@@ -1191,14 +1347,26 @@ local function initialize()
 end
 
 local eventFrame = CreateFrame("Frame")
+eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
-eventFrame:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_LOGIN" then
+eventFrame:SetScript("OnEvent", function(_, event, arg1)
+    if event == "ADDON_LOADED" then
+        if type(arg1) == "string" and arg1:match("^Atlas") then
+            wipe(atlasMapKeyCache)
+            wipe(atlasNameIndex)
+            atlasIndexBuilt = false
+        end
+    elseif event == "PLAYER_LOGIN" then
         initialize()
-    elseif event == "PLAYER_ENTERING_WORLD" and initialized and next(unresolved) then
-        -- Beta map data may become available after entering the world.
-        rebuildNodes()
+    elseif event == "PLAYER_ENTERING_WORLD" and initialized then
+        -- Atlas modules and beta map data can become available after login/world entry.
+        wipe(atlasMapKeyCache)
+        wipe(atlasNameIndex)
+        atlasIndexBuilt = false
+        if next(unresolved) then
+            rebuildNodes()
+        end
         notifyUpdate()
     end
 end)

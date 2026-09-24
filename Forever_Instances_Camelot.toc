@@ -2,10 +2,10 @@
 ## Title: Forever Instances — Dungeon & Raid Pins for HandyNotes
 ## Notes: Dungeon and raid entrances for World of Warcraft: Forever.
 ## Notes-ukUA: Входи до підземель і рейдів у World of Warcraft: Forever.
-## Version: v1.0.11
+## Version: v1.0.13
 ## Author: Forever adaptation based on Callie's HandyNotes_DungeonLocations (Classic)
 ## RequiredDeps: HandyNotes
-## OptionalDeps: TomTom
+## OptionalDeps: TomTom, Atlas
 ## SavedVariables: ForeverInstancesDB
 ## X-Game-Type: camelot
 ## X-Localizations: enUS, ukUA
@@ -15,5 +15,6 @@
 Localizations\enUS.lua
 Localizations\ukUA.lua
 Database.lua
+AtlasData.lua
 LegacyFallback.lua
 Core.lua

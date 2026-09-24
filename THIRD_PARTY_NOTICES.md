@@ -25,3 +25,8 @@ https://www.curseforge.com/wow/addons/tomtom
 
 World of Warcraft, game names, game assets, and related trademarks belong to
 Blizzard Entertainment or their respective rights holders.
+
+
+## Atlas metadata
+
+`AtlasData.lua` was generated from factual AreaID values in the user-supplied **Atlas v1.53.00** `Data/AreaIDs_ClassicForever.lua` table, which is distributed by the Atlas project under GPLv2. No Atlas implementation code or map artwork is bundled in Forever Instances. Atlas is an optional external addon.

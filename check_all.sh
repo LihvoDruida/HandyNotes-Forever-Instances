@@ -46,6 +46,7 @@ release_layout() {
         "dungeon.tga"
         "raid.tga"
         "forever_dungeon.tga"
+        "entrance_flag.tga"
         "icon.tga"
         "CHANGELOG.md"
         "LICENSE.md"
@@ -204,6 +205,79 @@ print(string.format("Dungeon territories: Alliance=%d Horde=%d Contested=%d", co
 LUA
 }
 
+entrance_coordinate_data() {
+    local lua_bin=""
+    if command -v lua5.1 >/dev/null 2>&1; then
+        lua_bin="lua5.1"
+    elif command -v lua >/dev/null 2>&1; then
+        lua_bin="lua"
+    else
+        echo "lua5.1/lua is required for entrance-coordinate validation" >&2
+        return 127
+    fi
+
+    "$lua_bin" - <<'LUA'
+local ns = {}
+local chunk, err = loadfile("Database.lua")
+assert(chunk, err)
+chunk("Forever_Instances", ns)
+
+local total = 0
+local dungeons = 0
+local raids = 0
+local distinctEntrances = 0
+
+local function validate(kind, id, instance)
+    total = total + 1
+    if kind == "Dungeon" then dungeons = dungeons + 1 else raids = raids + 1 end
+
+    assert(type(instance.entrance) == "table", "missing entrance block for " .. tostring(id))
+    local ex = instance.entrance.x
+    local ey = instance.entrance.y
+    assert(type(ex) == "number" and type(ey) == "number", "entrance x/y must be numeric for " .. tostring(id))
+    assert(ex >= 0 and ey >= 0, "entrance x/y must not be negative for " .. tostring(id))
+
+    local hasEntrance = ex > 0 and ey > 0
+    local zeroEntrance = ex == 0 and ey == 0
+    assert(hasEntrance or zeroEntrance, "entrance must be either a positive coordinate pair or 0,0 for " .. tostring(id))
+
+    if hasEntrance then
+        distinctEntrances = distinctEntrances + 1
+        local entranceZone = instance.entrance.zone or instance.zone
+        if type(instance.x) == "number" and type(instance.y) == "number"
+            and entranceZone == instance.zone then
+            assert(ex ~= instance.x or ey ~= instance.y,
+                "duplicate entrance must be stored as 0,0 for " .. tostring(id))
+        end
+    end
+end
+
+for _, group in pairs(ns.DB.Dungeons or {}) do
+    for id, instance in pairs(group or {}) do validate("Dungeon", id, instance) end
+end
+for _, group in pairs(ns.DB.Raids or {}) do
+    for id, instance in pairs(group or {}) do validate("Raid", id, instance) end
+end
+
+assert(total == 37, "expected 37 total instances, got " .. tostring(total))
+assert(dungeons == 28, "expected 28 dungeons, got " .. tostring(dungeons))
+assert(raids == 9, "expected 9 raids, got " .. tostring(raids))
+assert(distinctEntrances == 7, "expected 7 distinct entrance markers, got " .. tostring(distinctEntrances))
+
+local barrow = assert(ns.DB.Raids.Forever.barrow_deeps)
+local hyjal = assert(ns.DB.Raids.Forever.hyjal_summit)
+assert(barrow.entrance.x == 0 and barrow.entrance.y == 0, "Barrow Deeps unknown entrance must stay 0,0")
+assert(hyjal.entrance.x == 0 and hyjal.entrance.y == 0, "Hyjal Summit unknown entrance must stay 0,0")
+
+local core = assert(io.open("Core.lua", "rb")):read("*a")
+assert(core:find('local function hasUsablePoint', 1, true), "Core.lua must guard zero/unknown points")
+assert(core:find('if not hasUsablePoint(entrance.x, entrance.y)', 1, true), "Core.lua must suppress 0,0 entrance markers")
+assert(core:find('ICON_ENTRANCE', 1, true), "Core.lua must define the entrance flag icon")
+
+print(string.format("Instance entrances: total=%d dungeons=%d raids=%d distinct=%d", total, dungeons, raids, distinctEntrances))
+LUA
+}
+
 localization_tooltip_keys() {
     local lua_bin=""
     if command -v lua5.1 >/dev/null 2>&1; then
@@ -225,8 +299,12 @@ end
 
 local required = {
     "TERRITORY", "TERRITORY_ALLIANCE", "TERRITORY_HORDE", "TERRITORY_CONTESTED",
-    "BOSSES_LABEL", "LOCATION_LABEL", "ENTRANCE_LABEL", "OVERVIEW",
-    "FOREVER_CHANGES", "NOTES", "RIGHT_CLICK_TOMTOM",
+    "BOSSES_LABEL", "LOCATION_LABEL", "ENTRANCE_LABEL", "INSTANCE_POINT_LABEL",
+    "ENTRANCE_MARKER", "ACCESS_LABEL", "ENTRANCE_FOREVER_MAP",
+    "ENTRANCE_INSTANCE_PORTAL", "ENTRANCE_SECONDARY",
+    "ENTRANCE_MARAUDON_STONE_DOOR", "ENTRANCE_FOREVER_PORTAL",
+    "ENTRANCE_SERVICE_GATE", "OVERVIEW", "FOREVER_CHANGES", "NOTES",
+    "RIGHT_CLICK_TOMTOM",
 }
 for _, locale in ipairs({ "enUS", "ukUA" }) do
     local bucket = assert(ns.Locales and ns.Locales[locale], "missing locale " .. locale)
@@ -239,6 +317,7 @@ LUA
 
 stage "Lua syntax"             lua_syntax
 stage "Dungeon territory data" dungeon_territory_data
+stage "Entrance coordinate data" entrance_coordinate_data
 stage "Tooltip localization"   localization_tooltip_keys
 stage "Release file layout"   release_layout
 stage "Forever-only TOC"      toc_forever_only

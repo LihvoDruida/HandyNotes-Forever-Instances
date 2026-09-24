@@ -18,7 +18,8 @@ local addonName, ns = ...
 --   * Level ranges: current WoW Forever table from Warcraft Tavern.
 --   * Classic entrance coords: WoW Handbook where consistent.
 --   * Conflicting coordinates were cross-checked instead of copied blindly.
---   * Unknown/TBA Forever entrance coordinates remain nil.
+--   * Every record has an entrance block. Unknown or duplicate entrance coordinates are stored as 0.0, 0.0.
+--   * A non-zero entrance is reserved for a separately verified access/portal point distinct from the main x/y marker.
 --   * Unified descriptions: concise paraphrases synthesized from the checked Forever dungeon/raid resources;
 --     the UI does not split descriptions by source.
 --   * Returning Classic instances are marked as available in Forever without duplicating map nodes.
@@ -26,7 +27,7 @@ local addonName, ns = ...
 --   * Dungeon territory is normalized as Alliance / Horde / Contested for tooltip faction context.
 
 local DB = {
-    version = 4,
+    version = 5,
     coordinateUnit = "percent",
 
     Dungeons = {
@@ -44,6 +45,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_RAGEFIRE_CHASM_DESCRIPTION",
                 bossCount = 4,
                 origin = "Classic",
@@ -65,6 +70,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_DEADMINES_DESCRIPTION",
                 bossCount = 7,
                 origin = "Classic",
@@ -85,6 +94,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_WAILING_CAVERNS_DESCRIPTION",
                 bossCount = 8,
                 origin = "Classic",
@@ -105,6 +118,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_SHADOWFANG_KEEP_DESCRIPTION",
                 bossCount = 8,
                 origin = "Classic",
@@ -126,6 +143,14 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "conflict_resolved",
                 coordSource = "warcrafttavern",
+                entrance = {
+                    zone = "Darkshore",
+                    territory = "Alliance",
+                    x = 33.5,
+                    y = 93.5,
+                    labelKey = "ENTRANCE_FOREVER_MAP",
+                    source = "wowhandbook_forever",
+                },
                 noteKey = "INSTANCE_BLACKFATHOM_DEEPS_NOTE",
                 descriptionKey = "INSTANCE_BLACKFATHOM_DEEPS_DESCRIPTION",
                 bossCount = 7,
@@ -148,6 +173,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_THE_STOCKADE_DESCRIPTION",
                 bossCount = 5,
                 origin = "Classic",
@@ -168,6 +197,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "cross_checked",
                 coordSource = "warcrafttavern",
+                entrance = {
+                    x = 17.7,
+                    y = 39.1,
+                    labelKey = "ENTRANCE_INSTANCE_PORTAL",
+                    source = "wowhandbook_forever",
+                },
                 noteKey = "INSTANCE_GNOMEREGAN_NOTE",
                 descriptionKey = "INSTANCE_GNOMEREGAN_DESCRIPTION",
                 bossCount = 5,
@@ -190,6 +225,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_RAZORFEN_KRAUL_DESCRIPTION",
                 bossCount = 6,
                 origin = "Classic",
@@ -211,6 +250,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 wings = {
                     graveyard = {
                         name = "Graveyard",
@@ -269,6 +312,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 65.0,
+                    y = 43.0,
+                    labelKey = "ENTRANCE_SECONDARY",
+                    source = "classic_cross_check",
+                },
                 descriptionKey = "INSTANCE_ULDAMAN_DESCRIPTION",
                 bossCount = 8,
                 origin = "Classic",
@@ -290,11 +339,9 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "cross_checked",
                 coordSource = "wowhandbook",
-                approach = {
-                    x = 43.0,
-                    y = 95.0,
-                    label = "Approach path / outer ravine",
-                    source = "classic_guide_cross_check",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
                 },
                 noteKey = "INSTANCE_RAZORFEN_DOWNS_NOTE",
                 descriptionKey = "INSTANCE_RAZORFEN_DOWNS_DESCRIPTION",
@@ -318,6 +365,10 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_ZULFARRAK_DESCRIPTION",
                 bossCount = 8,
                 origin = "Classic",
@@ -338,11 +389,11 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "cross_checked",
                 coordSource = "wowhandbook",
-                approach = {
+                entrance = {
                     x = 38.0,
                     y = 58.0,
-                    label = "Valley of Spears / exterior approach",
-                    source = "warcrafttavern",
+                    labelKey = "ENTRANCE_MARAUDON_STONE_DOOR",
+                    source = "warcrafttavern_warcraftwiki",
                 },
                 descriptionKey = "INSTANCE_MARAUDON_DESCRIPTION",
                 bossCount = 8,
@@ -365,6 +416,12 @@ local DB = {
                 maxPlayers = 10,
                 coordStatus = "conflict_resolved",
                 coordSource = "cross_check",
+                entrance = {
+                    x = 77.3,
+                    y = 35.9,
+                    labelKey = "ENTRANCE_FOREVER_PORTAL",
+                    source = "wowhandbook_forever",
+                },
                 noteKey = "INSTANCE_TEMPLE_OF_ATAL_HAKKAR_NOTE",
                 descriptionKey = "INSTANCE_TEMPLE_OF_ATAL_HAKKAR_DESCRIPTION",
                 bossCount = 8,
@@ -388,6 +445,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_BLACKROCK_DEPTHS_DESCRIPTION",
                 bossCount = 21,
                 origin = "Classic",
@@ -410,6 +471,10 @@ local DB = {
                 y = 25.2,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 wings = {
                     lower = {
                         name = "Lower Blackrock Spire",
@@ -451,6 +516,10 @@ local DB = {
                 y = 33.3,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 wings = {
                     east = {
                         name = "Dire Maul East",
@@ -500,6 +569,12 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 43.5,
+                    y = 17.8,
+                    labelKey = "ENTRANCE_SERVICE_GATE",
+                    source = "wowhead_cross_check",
+                },
                 wings = {
                     living = {
                         name = "Stratholme - Living",
@@ -541,6 +616,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_SCHOLOMANCE_DESCRIPTION",
                 bossCount = 14,
                 origin = "Classic",
@@ -566,6 +645,12 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowhead",
+                entrance = {
+                    x = 43.5,
+                    y = 52.0,
+                    labelKey = "ENTRANCE_INSTANCE_PORTAL",
+                    source = "warcrafttavern_forever",
+                },
                 noteKey = "INSTANCE_HALL_OF_THANES_NOTE",
                 descriptionKey = "INSTANCE_HALL_OF_THANES_DESCRIPTION",
                 bossCount = 4,
@@ -588,6 +673,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "dving",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_RUINS_OF_LORDAERON_NOTE",
                 descriptionKey = "INSTANCE_RUINS_OF_LORDAERON_DESCRIPTION",
                 bossCount = 7,
@@ -611,6 +700,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_EXCAVATION_SITE_WETLANDS_NOTE",
                 descriptionKey = "INSTANCE_EXCAVATION_SITE_WETLANDS_DESCRIPTION",
                 bossCount = 4,
@@ -633,6 +726,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_CITY_OF_DALARAN_NOTE",
                 descriptionKey = "INSTANCE_CITY_OF_DALARAN_DESCRIPTION",
                 bossCount = 9,
@@ -656,6 +753,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_DROWNED_CITY_NOTE",
                 descriptionKey = "INSTANCE_DROWNED_CITY_DESCRIPTION",
                 origin = "Forever",
@@ -679,6 +780,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving_wowhead",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_KROLDOK_STRONGHOLD_NOTE",
                 descriptionKey = "INSTANCE_KROLDOK_STRONGHOLD_DESCRIPTION",
                 origin = "Forever",
@@ -701,6 +806,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving_wowhead",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_ALCAZ_PRISON_NOTE",
                 descriptionKey = "INSTANCE_ALCAZ_PRISON_DESCRIPTION",
                 origin = "Forever",
@@ -722,6 +831,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving_wowhead",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_BLACKMAW_HOLD_NOTE",
                 descriptionKey = "INSTANCE_BLACKMAW_HOLD_DESCRIPTION",
                 origin = "Forever",
@@ -744,6 +857,10 @@ local DB = {
                 maxPlayers = 5,
                 coordStatus = "verified",
                 coordSource = "wowgg_dving",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_SHAPERS_TERRACE_NOTE",
                 descriptionKey = "INSTANCE_SHAPERS_TERRACE_DESCRIPTION",
                 origin = "Forever",
@@ -767,6 +884,10 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_MOLTEN_CORE_DESCRIPTION",
                 bossCount = 10,
                 origin = "Classic",
@@ -786,6 +907,10 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_ONYXIAS_LAIR_DESCRIPTION",
                 bossCount = 1,
                 origin = "Classic",
@@ -807,6 +932,10 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_BLACKWING_LAIR_DESCRIPTION",
                 bossCount = 8,
                 origin = "Classic",
@@ -825,6 +954,10 @@ local DB = {
                 players = 20,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_ZULGURUB_DESCRIPTION",
                 bossCount = 10,
                 origin = "Classic",
@@ -843,6 +976,10 @@ local DB = {
                 players = 20,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_RUINS_OF_AHNQIRAJ_DESCRIPTION",
                 bossCount = 6,
                 origin = "Classic",
@@ -861,6 +998,10 @@ local DB = {
                 players = 40,
                 coordStatus = "verified",
                 coordSource = "wowhandbook",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 descriptionKey = "INSTANCE_TEMPLE_OF_AHNQIRAJ_DESCRIPTION",
                 bossCount = 9,
                 origin = "Classic",
@@ -879,6 +1020,10 @@ local DB = {
                 players = 40,
                 coordStatus = "cross_checked",
                 coordSource = "wowhead_classic",
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 noteKey = "INSTANCE_NAXXRAMAS_NOTE",
                 descriptionKey = "INSTANCE_NAXXRAMAS_DESCRIPTION",
                 bossCount = 15,
@@ -898,6 +1043,10 @@ local DB = {
                 zone = "Mount Hyjal",
                 x = nil,
                 y = nil,
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 players = 10,
                 coordStatus = "tba",
                 noteKey = "INSTANCE_BARROW_DEEPS_NOTE",
@@ -917,6 +1066,10 @@ local DB = {
                 zone = "Mount Hyjal",
                 x = nil,
                 y = nil,
+                entrance = {
+                    x = 0.0,
+                    y = 0.0,
+                },
                 players = 20,
                 coordStatus = "tba",
                 noteKey = "INSTANCE_HYJAL_SUMMIT_NOTE",

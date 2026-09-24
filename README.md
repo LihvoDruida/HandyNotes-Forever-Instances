@@ -73,6 +73,22 @@ in `Database.lua` and are displayed exactly as stored there. Zone names are read
 from `C_Map` when available, so the game client can still provide its own localized
 zone names.
 
+
+## Main point vs entrance point
+
+Every dungeon and raid record has two coordinate concepts:
+
+- top-level `x` / `y` — the primary map point for the instance/location;
+- `entrance = { x, y }` — an additional entrance/access point shown with the green flag.
+
+The `entrance` block is mandatory for every record. `0.0, 0.0` means that the
+separate entrance is unknown **or** would duplicate the primary point. In both
+cases the addon intentionally does not render a green entrance flag.
+
+A non-zero entrance is rendered only when it is distinct from the main point.
+The entrance may also specify its own `zone` when the access point is represented
+on a different map from the primary instance location.
+
 ## Data merge rules
 
 1. `Database.lua` is authoritative.
@@ -85,7 +101,7 @@ zone names.
 
 ## Icon system
 
-The addon now uses three clear icon groups:
+The addon uses four clear marker groups:
 
 - **Raids** -> standard **green** portal (`raid.tga`)
 - **Existing / Classic-era dungeons** -> standard **blue** portal (`dungeon.tga`)
@@ -157,6 +173,7 @@ names remain in `Database.lua` and are shown exactly as stored there.
 - `dungeon.tga`
 - `raid.tga`
 - `forever_dungeon.tga`
+- `entrance_flag.tga`
 - `icon.tga`
 - `icon.png`
 - `curseforge-icon.png`
