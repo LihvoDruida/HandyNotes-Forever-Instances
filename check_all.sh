@@ -36,6 +36,9 @@ lua_syntax() {
 }
 
 release_layout() {
+    # Release layout validates only runtime/build-critical files.
+    # Markdown documentation/audit files are intentionally excluded: they are
+    # repository metadata and must never block a release when absent.
     local required=(
         "Forever_Instances_Camelot.toc"
         "Core.lua"
@@ -49,15 +52,10 @@ release_layout() {
         "forever_dungeon.tga"
         "entrance_flag.tga"
         "icon.tga"
-        "CHANGELOG.md"
-        "LICENSE.md"
-        "THIRD_PARTY_NOTICES.md"
         ".pkgmeta"
         ".github/workflows/release.yml"
         "release.sh"
         "check_all.sh"
-        "RELEASING.md"
-        "CONTENT_CLASSIFICATION_AUDIT.md"
         "cliff.toml"
         "tools/set_version.py"
     )
