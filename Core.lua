@@ -114,10 +114,35 @@ local function localizedForeverChange(instance)
     return optionalL(instance.foreverChangeKey)
 end
 
+-- Filtering must not depend on transient fields attached while rebuilding map
+-- nodes. Database records now carry canonical contentType/era metadata; the
+-- runtime fields remain as compatibility fallbacks for old saved/dev data.
+local function canonicalKind(instance)
+    if not instance then return nil end
+    if instance.contentType == "Dungeon" or instance.contentType == "Raid" then
+        return instance.contentType
+    end
+    if instance._kind == "Dungeon" or instance._kind == "Raid" then
+        return instance._kind
+    end
+    return nil
+end
+
+local function canonicalEra(instance)
+    if not instance then return "Classic" end
+    if instance.era == "Forever" or instance.era == "Classic" then
+        return instance.era
+    end
+    if instance.isForeverNew == true or instance.origin == "Forever" or instance._group == "Forever" then
+        return "Forever"
+    end
+    return "Classic"
+end
+
 local function provenanceLabel(instance)
     if not instance then return L("CLASSIC") end
 
-    if instance.isForeverNew == true or instance.origin == "Forever" or instance._group == "Forever" then
+    if canonicalEra(instance) == "Forever" then
         return L("FOREVER") .. " • " .. L("NEW")
     end
 
@@ -413,6 +438,8 @@ local function makeEntranceMarker(instance)
     return {
         name = instance.name,
         aliases = instance.aliases,
+        contentType = canonicalKind(instance),
+        era = canonicalEra(instance),
         zone = entranceZone,
         parentZone = entrance.parentZone or instance.parentZone,
         location = entrance.location or instance.location,
@@ -511,13 +538,23 @@ local function rebuildNodes()
     ns.Unresolved = unresolved
 end
 
+local function filterEnabled(key)
+    -- Missing keys from older SavedVariables profiles mean "enabled". Only an
+    -- explicit false disables a category. This also makes migrations robust.
+    return not db or type(db.show) ~= "table" or db.show[key] ~= false
+end
+
 local function nodeVisible(instance)
     if not db then return true end
-    if not db.show[instance._kind] then return false end
-    if instance._group == "Forever" then
-        return db.show.Forever
+
+    local kind = canonicalKind(instance)
+    if kind == "Dungeon" and not filterEnabled("Dungeon") then return false end
+    if kind == "Raid" and not filterEnabled("Raid") then return false end
+
+    if canonicalEra(instance) == "Forever" then
+        return filterEnabled("Forever")
     end
-    return db.show.Classic
+    return filterEnabled("Classic")
 end
 
 local function projectPointToMap(sourceMapID, targetMapID, x, y)
@@ -597,10 +634,9 @@ local function nodeIcon(node)
         if nodeVisible(instance) then
             if instance.isEntranceMarker then
                 hasEntrance = true
-            elseif instance._kind == "Raid" then
+            elseif canonicalKind(instance) == "Raid" then
                 hasRaid = true
-            elseif instance._kind == "Dungeon"
-                and (instance.isForeverNew == true or instance._group == "Forever") then
+            elseif canonicalKind(instance) == "Dungeon" and canonicalEra(instance) == "Forever" then
                 hasForeverDungeon = true
             end
         end
@@ -1007,7 +1043,7 @@ local function addTooltipSection(tooltip, heading, body, color)
 end
 
 local function territoryInfo(instance)
-    if not instance or instance._kind ~= "Dungeon" then return nil, nil end
+    if not instance or canonicalKind(instance) ~= "Dungeon" then return nil, nil end
 
     if instance.territory == "Alliance" then
         return L("TERRITORY_ALLIANCE"), TOOLTIP_COLORS.alliance
@@ -1025,7 +1061,7 @@ local function renderInstanceTooltip(tooltip, instance)
 
     local meta = {
         provenanceLabel(instance),
-        instance._kind == "Raid" and L("RAID") or L("DUNGEON"),
+        canonicalKind(instance) == "Raid" and L("RAID") or L("DUNGEON"),
     }
     if instance.isEntranceMarker then table.insert(meta, L("ENTRANCE_MARKER")) end
     local levels = levelText(instance)
@@ -1079,7 +1115,7 @@ local function renderInstanceTooltip(tooltip, instance)
 
     if db.showDescriptions and instance.foreverStatus == "updated" then
         local change = localizedForeverChange(instance)
-        if not change and instance._kind == "Dungeon" then
+        if not change and canonicalKind(instance) == "Dungeon" then
             change = optionalL("DUNGEON_LOOT_UPDATE")
         end
         if change then
@@ -1218,7 +1254,26 @@ function pluginHandler:OnClick(button, down, uiMapID, coord)
 end
 
 local function notifyUpdate()
-    HandyNotes:SendMessage("HandyNotes_NotifyUpdate", PLUGIN_NAME)
+    -- The global Azeroth cache contains all source nodes and therefore must be
+    -- reconsidered whenever a filter changes. HandyNotes normally listens for
+    -- HandyNotes_NotifyUpdate, but direct refresh is more reliable on Forever
+    -- builds/forks where the AceEvent message bridge may not repaint instantly.
+    worldNodesDirty = true
+
+    if type(HandyNotes.UpdatePluginMap) == "function" then
+        local ok = pcall(HandyNotes.UpdatePluginMap, HandyNotes, nil, PLUGIN_NAME)
+        if ok then return end
+    end
+
+    if type(HandyNotes.SendMessage) == "function" then
+        pcall(HandyNotes.SendMessage, HandyNotes, "HandyNotes_NotifyUpdate", PLUGIN_NAME)
+    end
+end
+
+local function setFilter(key, value)
+    db.show = type(db.show) == "table" and db.show or {}
+    db.show[key] = value == true
+    notifyUpdate()
 end
 
 local function languageValues()
@@ -1296,24 +1351,24 @@ local function makeOptions()
                 type = "header", name = function() return L("FILTERS") end, order = 30,
             },
             showDungeons = {
-                type = "toggle", name = function() return L("DUNGEONS") end, order = 31,
-                get = function() return db.show.Dungeon end,
-                set = function(_, value) db.show.Dungeon = value notifyUpdate() end,
+                type = "toggle", name = function() return L("DUNGEONS") end, order = 31, width = "half",
+                get = function() return filterEnabled("Dungeon") end,
+                set = function(_, value) setFilter("Dungeon", value) end,
             },
             showRaids = {
-                type = "toggle", name = function() return L("RAIDS") end, order = 32,
-                get = function() return db.show.Raid end,
-                set = function(_, value) db.show.Raid = value notifyUpdate() end,
+                type = "toggle", name = function() return L("RAIDS") end, order = 32, width = "half",
+                get = function() return filterEnabled("Raid") end,
+                set = function(_, value) setFilter("Raid", value) end,
             },
             showClassic = {
-                type = "toggle", name = function() return L("CLASSIC_INSTANCES") end, order = 33,
-                get = function() return db.show.Classic end,
-                set = function(_, value) db.show.Classic = value notifyUpdate() end,
+                type = "toggle", name = function() return L("CLASSIC_INSTANCES") end, order = 33, width = "half",
+                get = function() return filterEnabled("Classic") end,
+                set = function(_, value) setFilter("Classic", value) end,
             },
             showForever = {
-                type = "toggle", name = function() return L("FOREVER_INSTANCES") end, order = 34,
-                get = function() return db.show.Forever end,
-                set = function(_, value) db.show.Forever = value notifyUpdate() end,
+                type = "toggle", name = function() return L("FOREVER_INSTANCES") end, order = 34, width = "half",
+                get = function() return filterEnabled("Forever") end,
+                set = function(_, value) setFilter("Forever", value) end,
             },
         },
     }
@@ -1329,6 +1384,13 @@ local function initialize()
     local aceDB = AceDB:New("ForeverInstancesDB", defaults, true)
     db = aceDB.profile
 
+    -- Filter migration: old profiles may lack the nested keys entirely. Treat
+    -- missing values as enabled and persist the canonical four-way schema.
+    db.show = type(db.show) == "table" and db.show or {}
+    for _, key in ipairs({ "Dungeon", "Raid", "Classic", "Forever" }) do
+        if db.show[key] == nil then db.show[key] = true end
+    end
+
     -- v1.0.10 localization migration: only explicit language databases are
     -- supported. Existing "auto" profiles migrate to English, the default.
     if db.language ~= "ukUA" and db.language ~= "enUS" then
@@ -1340,6 +1402,15 @@ local function initialize()
 
     -- Small diagnostic surface for /dump without polluting normal gameplay.
     ns.GetUnresolved = function() return unresolved end
+    ns.GetFilterState = function()
+        return {
+            Dungeon = filterEnabled("Dungeon"),
+            Raid = filterEnabled("Raid"),
+            Classic = filterEnabled("Classic"),
+            Forever = filterEnabled("Forever"),
+        }
+    end
+    ns.IsInstanceVisible = function(instance) return nodeVisible(instance) end
     ns.Rebuild = function()
         rebuildNodes()
         notifyUpdate()

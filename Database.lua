@@ -10,12 +10,19 @@ local addonName, ns = ...
 --   https://wowhandbook.com/zones/dungeons/
 --   https://www.warcrafttavern.com/forever/guides/raids/
 --   https://wowhandbook.com/zones/raids/
+--   https://www.wowhead.com/forever/guide/dungeons-overview-locations-details
+--   https://mobalytics.gg/wow-forever/guides/wow-forever-dungeons-raids
+--   https://wowtbc.gg/warcraftforever/loot-tables/dungeons/
+--   https://wowtbc.gg/warcraftforever/news/what-we-know/#new-raids
 --
 -- Coordinates are zone-map percentages (0..100), NOT normalized 0..1.
 -- Use DB.GetNormalizedCoordinates() for C_Map / normalized consumers.
 --
 -- Data policy:
---   * Level ranges: current WoW Forever table from Warcraft Tavern.
+--   * Content classification is consensus-driven across the current Forever catalogs above.
+--     Every top-level record carries an explicit contentType (Dungeon/Raid) and era (Classic/Forever).
+--   * Level ranges: current WoW Forever table from Warcraft Tavern; new Forever ranges are cross-checked
+--     against current Wowhead, Mobalytics, WoW Handbook, and wowtbc.gg coverage.
 --   * Classic entrance coords: WoW Handbook where consistent.
 --   * Conflicting coordinates were cross-checked instead of copied blindly.
 --   * Every record has an entrance block. Unknown or duplicate entrance coordinates are stored as 0.0, 0.0.
@@ -25,15 +32,19 @@ local addonName, ns = ...
 --   * Returning Classic instances are marked as available in Forever without duplicating map nodes.
 --   * Unnamed roadmap raids are intentionally not added as map records until a name/location is published.
 --   * Dungeon territory is normalized as Alliance / Horde / Contested for tooltip faction context.
+--     Blackfathom Deeps uses Alliance territory because the current Forever entrance catalog places its
+--     access point in Darkshore; the legacy/Ashenvale location conflict remains represented separately.
 
 local DB = {
-    version = 5,
+    version = 6,
     coordinateUnit = "percent",
 
     Dungeons = {
         Classic = {
             ragefire_chasm = {
                 name = "Ragefire Chasm",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 13,
                 levelMax = 18,
                 minEntryLevel = 8,
@@ -58,6 +69,8 @@ local DB = {
 
             deadmines = {
                 name = "The Deadmines",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "Deadmines" },
                 levelMin = 15,
                 levelMax = 22,
@@ -83,6 +96,8 @@ local DB = {
 
             wailing_caverns = {
                 name = "Wailing Caverns",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 17,
                 levelMax = 24,
                 minEntryLevel = 10,
@@ -107,6 +122,8 @@ local DB = {
 
             shadowfang_keep = {
                 name = "Shadowfang Keep",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 20,
                 levelMax = 26,
                 minEntryLevel = 10,
@@ -131,12 +148,14 @@ local DB = {
 
             blackfathom_deeps = {
                 name = "Blackfathom Deeps",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "BFD" },
                 levelMin = 22,
                 levelMax = 28,
                 minEntryLevel = 10,
                 zone = "Ashenvale",
-                territory = "Contested",
+                territory = "Alliance",
                 x = 14.5,
                 y = 14.6,
                 players = 5,
@@ -161,6 +180,8 @@ local DB = {
 
             the_stockade = {
                 name = "The Stockade",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "Stockade", "The Stockades" },
                 levelMin = 25,
                 levelMax = 29,
@@ -186,6 +207,8 @@ local DB = {
 
             gnomeregan = {
                 name = "Gnomeregan",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 29,
                 levelMax = 38,
                 minEntryLevel = 15,
@@ -213,6 +236,8 @@ local DB = {
 
             razorfen_kraul = {
                 name = "Razorfen Kraul",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "RFK" },
                 levelMin = 29,
                 levelMax = 38,
@@ -238,6 +263,8 @@ local DB = {
 
             scarlet_monastery = {
                 name = "The Scarlet Monastery",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "Scarlet Monastery", "SM" },
                 levelMin = 30,
                 levelMax = 46,
@@ -301,6 +328,8 @@ local DB = {
 
             uldaman = {
                 name = "Uldaman",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 36,
                 levelMax = 45,
                 minEntryLevel = 30,
@@ -327,6 +356,8 @@ local DB = {
 
             razorfen_downs = {
                 name = "Razorfen Downs",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "RFD" },
                 levelMin = 37,
                 levelMax = 46,
@@ -353,6 +384,8 @@ local DB = {
 
             zulfarrak = {
                 name = "Zul'Farrak",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "ZF" },
                 levelMin = 40,
                 levelMax = 47,
@@ -378,6 +411,8 @@ local DB = {
 
             maraudon = {
                 name = "Maraudon",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 45,
                 levelMax = 51,
                 minEntryLevel = 30,
@@ -404,6 +439,8 @@ local DB = {
 
             temple_of_atal_hakkar = {
                 name = "The Temple of Atal'Hakkar",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "Temple of Atal'Hakkar", "Sunken Temple", "ST" },
                 levelMin = 50,
                 levelMax = 55,
@@ -432,6 +469,8 @@ local DB = {
 
             blackrock_depths = {
                 name = "Blackrock Depths",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "BRD" },
                 levelMin = 52,
                 levelMax = 60,
@@ -458,6 +497,8 @@ local DB = {
 
             blackrock_spire = {
                 name = "Blackrock Spire",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "BRS" },
                 levelMin = 57,
                 levelMax = 60,
@@ -504,6 +545,8 @@ local DB = {
 
             dire_maul = {
                 name = "Dire Maul",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "DM" },
                 levelMin = 58,
                 levelMax = 60,
@@ -558,6 +601,8 @@ local DB = {
 
             stratholme = {
                 name = "Stratholme",
+                contentType = "Dungeon",
+                era = "Classic",
                 levelMin = 58,
                 levelMax = 60,
                 minEntryLevel = 45,
@@ -604,6 +649,8 @@ local DB = {
 
             scholomance = {
                 name = "Scholomance",
+                contentType = "Dungeon",
+                era = "Classic",
                 aliases = { "Scholo" },
                 levelMin = 58,
                 levelMax = 60,
@@ -631,6 +678,8 @@ local DB = {
         Forever = {
             hall_of_thanes = {
                 name = "Hall of Thanes",
+                contentType = "Dungeon",
+                era = "Forever",
                 aliases = { "The Hall of Thanes" },
                 isForeverNew = true,
                 levelMin = 13,
@@ -661,6 +710,8 @@ local DB = {
 
             ruins_of_lordaeron = {
                 name = "Ruins of Lordaeron",
+                contentType = "Dungeon",
+                era = "Forever",
                 isForeverNew = true,
                 levelMin = 15,
                 levelMax = 20,
@@ -687,6 +738,8 @@ local DB = {
 
             excavation_site_wetlands = {
                 name = "Excavation Site: Wetlands",
+                contentType = "Dungeon",
+                era = "Forever",
                 aliases = { "Excavation Site" },
                 isForeverNew = true,
                 levelMin = 24,
@@ -714,6 +767,8 @@ local DB = {
 
             city_of_dalaran = {
                 name = "City of Dalaran",
+                contentType = "Dungeon",
+                era = "Forever",
                 isForeverNew = true,
                 levelMin = 28,
                 levelMax = 33,
@@ -740,6 +795,8 @@ local DB = {
 
             drowned_city = {
                 name = "The Drowned City",
+                contentType = "Dungeon",
+                era = "Forever",
                 aliases = { "Drowned City" },
                 isForeverNew = true,
                 levelMin = 35,
@@ -766,6 +823,8 @@ local DB = {
 
             kroldok_stronghold = {
                 name = "Krol'Dok Stronghold",
+                contentType = "Dungeon",
+                era = "Forever",
                 aliases = { "Krol’dok Stronghold", "Krol'Dok" },
                 isForeverNew = true,
                 levelMin = 40,
@@ -793,6 +852,8 @@ local DB = {
 
             alcaz_prison = {
                 name = "Alcaz Prison",
+                contentType = "Dungeon",
+                era = "Forever",
                 aliases = { "Alcaz Island Prison" },
                 isForeverNew = true,
                 levelMin = 48,
@@ -819,6 +880,8 @@ local DB = {
 
             blackmaw_hold = {
                 name = "Blackmaw Hold",
+                contentType = "Dungeon",
+                era = "Forever",
                 isForeverNew = true,
                 levelMin = 55,
                 levelMax = 60,
@@ -844,6 +907,8 @@ local DB = {
 
             shapers_terrace = {
                 name = "Shaper's Terrace",
+                contentType = "Dungeon",
+                era = "Forever",
                 aliases = { "The Shaper's Terrace", "Shaper’s Terrace" },
                 isForeverNew = true,
                 levelMin = 58,
@@ -874,6 +939,8 @@ local DB = {
         Classic = {
             molten_core = {
                 name = "Molten Core",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "MC" },
                 levelMin = 60,
                 levelMax = 60,
@@ -898,6 +965,8 @@ local DB = {
 
             onyxias_lair = {
                 name = "Onyxia's Lair",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "Onyxia", "Ony" },
                 levelMin = 60,
                 levelMax = 60,
@@ -922,6 +991,8 @@ local DB = {
 
             blackwing_lair = {
                 name = "Blackwing Lair",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "BWL" },
                 levelMin = 60,
                 levelMax = 60,
@@ -945,6 +1016,8 @@ local DB = {
 
             zulgurub = {
                 name = "Zul'Gurub",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "ZG" },
                 levelMin = 60,
                 levelMax = 60,
@@ -967,6 +1040,8 @@ local DB = {
 
             ruins_of_ahnqiraj = {
                 name = "Ruins of Ahn'Qiraj",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "AQ20" },
                 levelMin = 60,
                 levelMax = 60,
@@ -989,6 +1064,8 @@ local DB = {
 
             temple_of_ahnqiraj = {
                 name = "Temple of Ahn'Qiraj",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "AQ40" },
                 levelMin = 60,
                 levelMax = 60,
@@ -1011,6 +1088,8 @@ local DB = {
 
             naxxramas = {
                 name = "Naxxramas",
+                contentType = "Raid",
+                era = "Classic",
                 aliases = { "Naxx" },
                 levelMin = 60,
                 levelMax = 60,
@@ -1036,6 +1115,8 @@ local DB = {
         Forever = {
             barrow_deeps = {
                 name = "Barrow Deeps",
+                contentType = "Raid",
+                era = "Forever",
                 aliases = { "The Barrow Deeps" },
                 isForeverNew = true,
                 levelMin = 60,
@@ -1060,6 +1141,8 @@ local DB = {
 
             hyjal_summit = {
                 name = "Hyjal Summit",
+                contentType = "Raid",
+                era = "Forever",
                 isForeverNew = true,
                 levelMin = 60,
                 levelMax = 60,
