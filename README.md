@@ -49,13 +49,13 @@ with the supplied `WoWForeverInstances.lua` database.
 
 The current Forever dungeon catalog is normalized into three territory groups for tooltip context:
 
-- **4 Alliance-territory dungeons**
+- **5 Alliance-territory dungeons**
 - **7 Horde-territory dungeons**
-- **17 Contested dungeons**
+- **16 Contested dungeons**
 
 These labels describe the faction territory around the dungeon entrance, not a blanket access restriction. Dungeon, raid, and wing names remain canonical and untranslated.
 
-Blackfathom Deeps is intentionally marked **Contested** because the addon's verified entrance is at The Zoram Strand in Ashenvale. Some current Forever listings place it on the Darkshore map and therefore label it Alliance territory; this addon follows the resolved entrance zone instead.
+Blackfathom Deeps keeps the legacy/Ashenvale main location as a separate map point, but its **territory is Alliance** because the current Forever entrance catalog places the access point in Darkshore. The conflicting locations remain explicit in the database instead of silently discarding either source.
 
 ## Localization
 
@@ -199,3 +199,38 @@ The repository includes a tag-based CurseForge release pipeline using the
 BigWigs WoW AddOn Packager. Push a matching `v<version>` tag to package the addon,
 create a GitHub release, and upload it to CurseForge after the pre-release gate
 passes. See `RELEASING.md` for required GitHub variables/secrets and release steps.
+
+## Atlas integration
+
+The addon includes an optional metadata bridge generated from the supplied **Atlas v1.53.00** `AreaIDs_ClassicForever.lua` table (Atlas marks that table as updated for WoW Forever 1.60.1.69913).
+
+- Atlas instance AreaIDs and outdoor-zone AreaIDs are attached to every dungeon/raid record where Atlas provides them.
+- Atlas metadata never overwrites the addon's verified world-map `x/y` coordinates.
+- The supplied Atlas core does **not** contain outdoor world-map X/Y coordinates; its relevant location data is AreaID-based.
+- If Atlas plus an Atlas map module/fork is installed and exposes a matching map in `AtlasMaps`, **Shift + left-click** on a Forever Instances pin opens the corresponding Atlas instance map.
+- Atlas remains completely optional; no Atlas code is bundled or required at runtime.
+
+See `ATLAS_AUDIT.md` in the source package for the per-instance AreaID mapping.
+
+### Filter behavior
+
+The four HandyNotes filters are two independent dimensions and combine with **AND** logic:
+
+- `Dungeons` / `Raids` select the content type.
+- `Classic-era instances` / `Forever-new instances` select the content generation.
+
+Every top-level database record carries explicit `contentType` and `era` metadata, so filtering no longer depends on transient runtime fields. Existing SavedVariables with missing filter keys migrate to enabled defaults. Filter changes invalidate the Azeroth projection cache and directly refresh the HandyNotes plugin map, with the normal HandyNotes message path retained as a compatibility fallback.
+
+
+## Source classification audit
+
+See `CONTENT_CLASSIFICATION_AUDIT.md` in the source package for the complete 37-instance Classic/Forever and Dungeon/Raid classification review, source list, and documented cross-source conflicts.
+
+## Filter semantics
+
+The two status filters are intentionally **overlapping**:
+
+- **Classic-era instances** — all Classic-origin dungeons and raids.
+- **Forever: new or updated** — every brand-new Forever instance plus any Classic-origin instance with a documented Forever-specific update.
+
+This means disabling **Classic-era instances** while leaving **Forever: new or updated** enabled keeps all new/updated Forever-relevant content visible.

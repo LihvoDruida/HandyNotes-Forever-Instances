@@ -45,7 +45,7 @@ This version was rebuilt from the supplied classic HandyNotes dungeon addon and 
 
 ### Dungeon territory labels
 
-The current Forever catalog is classified as **4 Alliance-territory**, **7 Horde-territory**, and **17 Contested** dungeons. The tooltip uses the corresponding faction color while keeping portal icons dedicated to instance type/content generation. Territory describes the area around the entrance and does not imply that every dungeon is faction-locked.
+The current Forever catalog is classified as **5 Alliance-territory**, **7 Horde-territory**, and **16 Contested** dungeons. The tooltip uses the corresponding faction color while keeping portal icons dedicated to instance type/content generation. Territory describes the area around the entrance and does not imply that every dungeon is faction-locked.
 
 ### Data logic
 
@@ -130,3 +130,13 @@ It is not intended for Retail or other Classic branches.
 - Added published boss counts and new Forever raid boss rosters.
 - Added confirmed Forever changes for Molten Core and Onyxia's Lair.
 - Added description visibility setting.
+
+
+### Optional Atlas integration
+
+If **Atlas** (or a compatible Atlas Forever map package) is installed, Forever Instances can match available Atlas instance maps and lets you **Shift + left-click** a map pin to open the corresponding instance map in Atlas. Atlas is optional and is not bundled with this addon.
+
+
+### Filters
+
+Filters combine content type and content generation independently: **Dungeons / Raids** and **Classic-era / Forever-new**. Turning off a category immediately refreshes both world-map and minimap pins.

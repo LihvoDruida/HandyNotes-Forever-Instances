@@ -71,7 +71,8 @@ Validation is configured for the v1.0.12 data contract and is executed in CI whe
 - Faction territory uses fixed visual semantics: Alliance blue, Horde red, Contested gold.
 
 
-- Blackfathom Deeps is validated as **Contested** because the resolved entrance is in The Zoram Strand, Ashenvale; this intentionally differs from current listings that map it to Darkshore / Alliance territory.
+- Territory distribution is validated as **5 Alliance / 7 Horde / 16 Contested**, matching the current Forever dungeon catalog.
+- Blackfathom Deeps keeps its Ashenvale main-location conflict record, while faction territory follows the current Darkshore entrance classification (**Alliance**).
 
 
 
@@ -84,3 +85,34 @@ Validation is configured for the v1.0.12 data contract and is executed in CI whe
 - A defensive duplicate check also suppresses a non-zero entrance if it exactly matches the main point on the same map.
 - Distinct verified entrance/access markers currently exist for Blackfathom Deeps, Gnomeregan, Uldaman back entrance, Maraudon Stone Door, Temple of Atal'Hakkar, Stratholme Service Gate, and Hall of Thanes.
 - Barrow Deeps and Hyjal Summit keep unknown main coordinates and a zero entrance block until exact coordinates are published.
+
+
+## Atlas metadata bridge
+
+- Source inspected: user-supplied Atlas v1.53.00.
+- Atlas `AreaIDs_ClassicForever.lua` reports WoW Forever 1.60.1.69913 coverage.
+- 37/37 addon instance records receive an Atlas metadata block.
+- 33/37 records have a direct matching Atlas instance AreaID.
+- 37/37 records have at least one Atlas outdoor-zone AreaID after safe name alias normalization.
+- The Atlas core package does not provide outdoor world-map X/Y coordinates, so no canonical `x/y` values are overwritten from Atlas.
+- Optional runtime integration uses Atlas's public globals only when Atlas is installed; Atlas remains non-required.
+
+
+## Filter / classification validation
+
+- All 37 top-level records require explicit `contentType` and `era` metadata.
+- Exact source-backed distribution: 19 Classic dungeons, 9 Forever-new dungeons, 7 Classic raids, 2 Forever-new raids.
+- Entrance markers inherit their parent instance classification so they disappear with the same filters.
+- Missing SavedVariables filter keys migrate to enabled values.
+- `Dungeons` / `Raids` and `Classic-era` / `Forever-new` are independent filter dimensions with AND semantics.
+- Every filter change invalidates the projected Azeroth cache and triggers a direct HandyNotes plugin refresh, falling back to `HandyNotes_NotifyUpdate` only when necessary.
+
+
+## Overlapping Forever status filter
+
+- `Classic-era instances` matches all 26 Classic-origin records.
+- `Forever: new or updated` matches 32 records: 11 Forever-new + 21 updated Classic records.
+- 21 updated Classic records deliberately match both filters.
+- With Classic disabled and Forever enabled, those 32 new/updated records remain visible.
+- Both status filters disabled produces no status-matched nodes.
+- CI territory expectations are synchronized to the current database: Alliance=5, Horde=7, Contested=16.

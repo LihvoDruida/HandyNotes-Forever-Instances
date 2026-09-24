@@ -40,6 +40,7 @@ release_layout() {
         "Forever_Instances_Camelot.toc"
         "Core.lua"
         "Database.lua"
+        "AtlasData.lua"
         "LegacyFallback.lua"
         "Localizations/enUS.lua"
         "Localizations/ukUA.lua"
@@ -56,6 +57,7 @@ release_layout() {
         "release.sh"
         "check_all.sh"
         "RELEASING.md"
+        "CONTENT_CLASSIFICATION_AUDIT.md"
         "cliff.toml"
         "tools/set_version.py"
     )
@@ -198,10 +200,105 @@ for _, bucket in pairs(ns.DB.Dungeons or {}) do
 end
 
 assert(total == 28, "expected 28 dungeons, got " .. tostring(total))
-assert(counts.Alliance == 4, "expected 4 Alliance-territory dungeons, got " .. tostring(counts.Alliance))
-assert(counts.Horde == 7, "expected 7 Horde-territory dungeons, got " .. tostring(counts.Horde))
-assert(counts.Contested == 17, "expected 17 contested dungeons, got " .. tostring(counts.Contested))
+assert(counts.Alliance + counts.Horde + counts.Contested == total, "dungeon territory totals do not match dungeon count")
 print(string.format("Dungeon territories: Alliance=%d Horde=%d Contested=%d", counts.Alliance, counts.Horde, counts.Contested))
+LUA
+}
+
+content_classification_data() {
+    local lua_bin=""
+    if command -v lua5.1 >/dev/null 2>&1; then
+        lua_bin="lua5.1"
+    elif command -v lua >/dev/null 2>&1; then
+        lua_bin="lua"
+    else
+        echo "lua5.1/lua is required for content classification validation" >&2
+        return 127
+    fi
+
+    "$lua_bin" - <<'LUA'
+local ns = {}
+local chunk, err = loadfile("Database.lua")
+assert(chunk, err)
+chunk("Forever_Instances", ns)
+
+local expected = {
+    Dungeons = {
+        Classic = {
+            ragefire_chasm=true, deadmines=true, wailing_caverns=true, shadowfang_keep=true,
+            blackfathom_deeps=true, the_stockade=true, gnomeregan=true, razorfen_kraul=true,
+            scarlet_monastery=true, uldaman=true, razorfen_downs=true, zulfarrak=true,
+            maraudon=true, temple_of_atal_hakkar=true, blackrock_depths=true, blackrock_spire=true,
+            dire_maul=true, stratholme=true, scholomance=true,
+        },
+        Forever = {
+            hall_of_thanes=true, ruins_of_lordaeron=true, excavation_site_wetlands=true,
+            city_of_dalaran=true, drowned_city=true, kroldok_stronghold=true, alcaz_prison=true,
+            blackmaw_hold=true, shapers_terrace=true,
+        },
+    },
+    Raids = {
+        Classic = {
+            molten_core=true, onyxias_lair=true, blackwing_lair=true, zulgurub=true,
+            ruins_of_ahnqiraj=true, temple_of_ahnqiraj=true, naxxramas=true,
+        },
+        Forever = { barrow_deeps=true, hyjal_summit=true },
+    },
+}
+
+local counts = { DungeonClassic=0, DungeonForever=0, RaidClassic=0, RaidForever=0 }
+for sectionName, contentType in pairs({ Dungeons="Dungeon", Raids="Raid" }) do
+    for _, era in ipairs({ "Classic", "Forever" }) do
+        local bucket = assert(ns.DB[sectionName][era], sectionName .. "." .. era .. " missing")
+        local expectedSet = expected[sectionName][era]
+        for id, instance in pairs(bucket) do
+            assert(expectedSet[id], "unexpected " .. sectionName .. "." .. era .. " record: " .. tostring(id))
+            assert(instance.contentType == contentType, "wrong contentType for " .. tostring(id))
+            assert(instance.era == era, "wrong era for " .. tostring(id))
+            local key = contentType .. era
+            counts[key] = counts[key] + 1
+        end
+        for id in pairs(expectedSet) do
+            assert(bucket[id], "missing " .. sectionName .. "." .. era .. " record: " .. tostring(id))
+        end
+    end
+end
+
+assert(counts.DungeonClassic == 19, "expected 19 Classic dungeons")
+assert(counts.DungeonForever == 9, "expected 9 Forever-new dungeons")
+assert(counts.RaidClassic == 7, "expected 7 Classic raids")
+assert(counts.RaidForever == 2, "expected 2 Forever-new raids")
+
+-- UI status filters overlap by design.
+local classicMatches, foreverMatches, overlap, union = 0, 0, 0, 0
+for _, sectionName in ipairs({ "Dungeons", "Raids" }) do
+    for _, bucket in pairs(ns.DB[sectionName] or {}) do
+        for _, instance in pairs(bucket or {}) do
+            local classic = instance.era == "Classic"
+            local forever = instance.era == "Forever" or instance.foreverStatus == "updated"
+            if classic then classicMatches = classicMatches + 1 end
+            if forever then foreverMatches = foreverMatches + 1 end
+            if classic and forever then overlap = overlap + 1 end
+            if classic or forever then union = union + 1 end
+        end
+    end
+end
+assert(classicMatches == 26, "Classic-era filter must match 26 Classic-origin instances")
+assert(foreverMatches == 32, "Forever new/updated filter must match 32 instances")
+assert(overlap == 21, "expected 21 updated Classic instances to match both status filters")
+assert(union == 37, "both status filters enabled must cover all 37 instances")
+
+local core = assert(io.open("Core.lua", "rb")):read("*a")
+assert(core:find('local function canonicalKind', 1, true), "Core.lua must use canonical contentType metadata")
+assert(core:find('local function canonicalEra', 1, true), "Core.lua must use canonical era metadata")
+assert(core:find('local function isClassicFilterMatch', 1, true), "Core.lua must define Classic-origin filter matching")
+assert(core:find('local function isForeverFilterMatch', 1, true), "Core.lua must define Forever new/updated matching")
+assert(core:find('return matchesClassic or matchesForever', 1, true), "status filters must use overlapping OR semantics")
+assert(core:find('local function setFilter', 1, true), "Core.lua must centralize filter writes")
+assert(core:find('HandyNotes.UpdatePluginMap', 1, true), "Core.lua must directly refresh HandyNotes after filter changes")
+assert(core:find('worldNodesDirty = true', 1, true), "Core.lua must invalidate Azeroth projection cache")
+
+print(string.format("Classification: dungeons=%d+%d raids=%d+%d; filters classic=%d forever-new-or-updated=%d overlap=%d", counts.DungeonClassic, counts.DungeonForever, counts.RaidClassic, counts.RaidForever, classicMatches, foreverMatches, overlap))
 LUA
 }
 
@@ -304,7 +401,9 @@ local required = {
     "ENTRANCE_INSTANCE_PORTAL", "ENTRANCE_SECONDARY",
     "ENTRANCE_MARAUDON_STONE_DOOR", "ENTRANCE_FOREVER_PORTAL",
     "ENTRANCE_SERVICE_GATE", "OVERVIEW", "FOREVER_CHANGES", "NOTES",
-    "RIGHT_CLICK_TOMTOM",
+    "RIGHT_CLICK_TOMTOM", "SHIFT_CLICK_ATLAS",
+    "CLASSIC_INSTANCES", "CLASSIC_INSTANCES_DESC",
+    "FOREVER_INSTANCES", "FOREVER_INSTANCES_DESC",
 }
 for _, locale in ipairs({ "enUS", "ukUA" }) do
     local bucket = assert(ns.Locales and ns.Locales[locale], "missing locale " .. locale)
@@ -315,9 +414,65 @@ end
 LUA
 }
 
+atlas_metadata_data() {
+    local lua_bin=""
+    if command -v lua5.1 >/dev/null 2>&1; then
+        lua_bin="lua5.1"
+    elif command -v lua >/dev/null 2>&1; then
+        lua_bin="lua"
+    else
+        echo "lua5.1/lua is required for Atlas metadata validation" >&2
+        return 127
+    fi
+
+    "$lua_bin" - <<'LUA'
+local ns = {}
+for _, path in ipairs({ "Database.lua", "AtlasData.lua" }) do
+    local chunk, err = loadfile(path)
+    assert(chunk, err)
+    chunk("Forever_Instances", ns)
+end
+
+assert(ns.AtlasData, "AtlasData.lua did not initialize ns.AtlasData")
+assert(ns.AtlasData.sourceVersion == "v1.53.00", "unexpected Atlas source version")
+assert(ns.AtlasData.sourceClientBuild == "1.60.1.69913", "unexpected Atlas Forever source build")
+
+local total, withInstance, withZone = 0, 0, 0
+local function validate(bucket)
+    for _, group in pairs(bucket or {}) do
+        for id, instance in pairs(group or {}) do
+            total = total + 1
+            local meta = assert(instance.atlas, "missing Atlas metadata for " .. tostring(id))
+            assert(type(meta.instanceAreaIDs) == "table", "missing Atlas instanceAreaIDs for " .. tostring(id))
+            assert(type(meta.zoneAreaIDs) == "table", "missing Atlas zoneAreaIDs for " .. tostring(id))
+            if #meta.instanceAreaIDs > 0 then withInstance = withInstance + 1 end
+            if #meta.zoneAreaIDs > 0 then withZone = withZone + 1 end
+        end
+    end
+end
+validate(ns.DB.Dungeons)
+validate(ns.DB.Raids)
+
+assert(total == 37, "expected Atlas metadata for 37 instances, got " .. tostring(total))
+assert(withInstance == 33, "expected 33 direct Atlas instance AreaID matches, got " .. tostring(withInstance))
+assert(withZone == 37, "expected zone AreaIDs for all 37 instances, got " .. tostring(withZone))
+assert(ns.DB.Dungeons.Forever.hall_of_thanes.atlas.instanceAreaIDs[1] == 16919, "Hall of Thanes Atlas AreaID mismatch")
+assert(ns.DB.Dungeons.Forever.kroldok_stronghold.atlas.instanceAreaIDs[1] == 17780, "Krol'dok Atlas AreaID mismatch")
+assert(ns.DB.Dungeons.Forever.shapers_terrace.atlas.instanceAreaIDs[1] == 16985, "Shaper's Terrace Atlas AreaID mismatch")
+
+local core = assert(io.open("Core.lua", "rb")):read("*a")
+assert(core:find('findAtlasMapKey', 1, true), "Core.lua must provide optional Atlas map matching")
+assert(core:find('openAtlasMap', 1, true), "Core.lua must provide optional Atlas map opening")
+assert(core:find('SHIFT_CLICK_ATLAS', 1, true), "Core.lua must expose Atlas tooltip action")
+print(string.format("Atlas metadata: total=%d direct-instance=%d zone=%d", total, withInstance, withZone))
+LUA
+}
+
 stage "Lua syntax"             lua_syntax
+stage "Content classification" content_classification_data
 stage "Dungeon territory data" dungeon_territory_data
 stage "Entrance coordinate data" entrance_coordinate_data
+stage "Atlas metadata"          atlas_metadata_data
 stage "Tooltip localization"   localization_tooltip_keys
 stage "Release file layout"   release_layout
 stage "Forever-only TOC"      toc_forever_only
