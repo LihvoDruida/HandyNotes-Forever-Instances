@@ -12,6 +12,7 @@ ignore:
   - VALIDATION.md
   - COORDINATE_AUDIT.md
   - ATLAS_AUDIT.md
+  - CONTENT_CLASSIFICATION_AUDIT.md
   - .git
   - .github
   - .gitignore

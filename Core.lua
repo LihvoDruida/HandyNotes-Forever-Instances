@@ -544,6 +544,23 @@ local function filterEnabled(key)
     return not db or type(db.show) ~= "table" or db.show[key] ~= false
 end
 
+local function isClassicFilterMatch(instance)
+    -- "Classic-era" is an origin/category filter, not an exclusive era bucket.
+    -- Updated Classic instances still belong to this category.
+    return canonicalEra(instance) == "Classic"
+end
+
+local function isForeverFilterMatch(instance)
+    -- The Forever filter is intentionally broader than "Forever-new".
+    -- It includes brand-new Forever instances and returning Classic instances
+    -- that received a documented Forever update. Purely returning/unchanged
+    -- Classic instances do not match this filter.
+    if canonicalEra(instance) == "Forever" then
+        return true
+    end
+    return instance and instance.foreverStatus == "updated"
+end
+
 local function nodeVisible(instance)
     if not db then return true end
 
@@ -551,10 +568,12 @@ local function nodeVisible(instance)
     if kind == "Dungeon" and not filterEnabled("Dungeon") then return false end
     if kind == "Raid" and not filterEnabled("Raid") then return false end
 
-    if canonicalEra(instance) == "Forever" then
-        return filterEnabled("Forever")
-    end
-    return filterEnabled("Classic")
+    -- Classification filters are overlapping inclusion filters. This matters
+    -- for updated Classic instances: with Classic OFF + Forever ON they must
+    -- remain visible because they are part of the Forever changes.
+    local matchesClassic = filterEnabled("Classic") and isClassicFilterMatch(instance)
+    local matchesForever = filterEnabled("Forever") and isForeverFilterMatch(instance)
+    return matchesClassic or matchesForever
 end
 
 local function projectPointToMap(sourceMapID, targetMapID, x, y)
@@ -1361,12 +1380,16 @@ local function makeOptions()
                 set = function(_, value) setFilter("Raid", value) end,
             },
             showClassic = {
-                type = "toggle", name = function() return L("CLASSIC_INSTANCES") end, order = 33, width = "half",
+                type = "toggle", name = function() return L("CLASSIC_INSTANCES") end,
+                desc = function() return L("CLASSIC_INSTANCES_DESC") end,
+                order = 33, width = "half",
                 get = function() return filterEnabled("Classic") end,
                 set = function(_, value) setFilter("Classic", value) end,
             },
             showForever = {
-                type = "toggle", name = function() return L("FOREVER_INSTANCES") end, order = 34, width = "half",
+                type = "toggle", name = function() return L("FOREVER_INSTANCES") end,
+                desc = function() return L("FOREVER_INSTANCES_DESC") end,
+                order = 34, width = "half",
                 get = function() return filterEnabled("Forever") end,
                 set = function(_, value) setFilter("Forever", value) end,
             },
