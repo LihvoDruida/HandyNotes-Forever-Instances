@@ -398,7 +398,7 @@ local required = {
     "ENTRANCE_MARKER", "ACCESS_LABEL", "ENTRANCE_FOREVER_MAP",
     "ENTRANCE_INSTANCE_PORTAL", "ENTRANCE_SECONDARY",
     "ENTRANCE_MARAUDON_STONE_DOOR", "ENTRANCE_FOREVER_PORTAL",
-    "ENTRANCE_SERVICE_GATE", "OVERVIEW", "FOREVER_CHANGES", "NOTES",
+    "ENTRANCE_SERVICE_GATE", "ENTRANCE_PATH", "MAP_POINT_LABEL", "OVERVIEW", "FOREVER_CHANGES", "NOTES",
     "RIGHT_CLICK_TOMTOM", "SHIFT_CLICK_ATLAS",
     "CLASSIC_INSTANCES", "CLASSIC_INSTANCES_DESC",
     "FOREVER_INSTANCES", "FOREVER_INSTANCES_DESC",
@@ -409,6 +409,79 @@ for _, locale in ipairs({ "enUS", "ukUA" }) do
         assert(type(bucket[key]) == "string" and bucket[key] ~= "", locale .. " missing tooltip key " .. key)
     end
 end
+LUA
+}
+
+maputils_coordinate_data() {
+    local lua_bin=""
+    if command -v lua5.1 >/dev/null 2>&1; then
+        lua_bin="lua5.1"
+    elif command -v lua >/dev/null 2>&1; then
+        lua_bin="lua"
+    else
+        echo "lua5.1/lua is required for MapUtils coordinate validation" >&2
+        return 127
+    fi
+
+    "$lua_bin" - <<'LUA'
+local ns = {}
+local chunk, err = loadfile("Database.lua")
+assert(chunk, err)
+chunk("Forever_Instances", ns)
+
+local expected = {
+    ragefire_chasm={1454,52.6,49.0}, deadmines={1436,42.5,71.7},
+    wailing_caverns={1413,46.0,36.4}, shadowfang_keep={1421,44.8,67.8},
+    the_stockade={1453,52.4,70.0}, blackfathom_deeps={1440,14.5,14.2},
+    gnomeregan={1426,24.3,39.8}, razorfen_kraul={1413,42.9,90.2},
+    scarlet_monastery={1420,82.6,33.8}, razorfen_downs={1413,49.0,93.9},
+    uldaman={1418,44.6,12.1}, zulfarrak={1446,38.7,20.0},
+    maraudon={1443,29.1,62.5}, temple_of_atal_hakkar={1435,69.9,53.6},
+    blackrock_depths={1427,34.8,85.3}, blackrock_spire={1428,29.4,38.3},
+    dire_maul={1444,62.5,24.9}, scholomance={1422,69.7,73.2},
+    hall_of_thanes={1455,27.864,47.695}, ruins_of_lordaeron={1420,63.36,67.38},
+}
+local found = 0
+for _, group in pairs(ns.DB.Dungeons or {}) do
+    for id, instance in pairs(group or {}) do
+        local e = expected[id]
+        if e then
+            found = found + 1
+            assert(instance.mapID == e[1], id .. " MapUtils mapID mismatch")
+            assert(math.abs(instance.x - e[2]) < 0.0001, id .. " MapUtils x mismatch")
+            assert(math.abs(instance.y - e[3]) < 0.0001, id .. " MapUtils y mismatch")
+            assert(instance.coordSource == "maputils_camelot_1.2.0", id .. " source mismatch")
+        end
+    end
+end
+assert(found == 20, "expected 20 MapUtils-backed dungeons, got " .. tostring(found))
+
+local hall = ns.DB.Dungeons.Forever.hall_of_thanes
+assert(math.abs(hall.entrance.x - 43.965) < 0.0001 and math.abs(hall.entrance.y - 51.762) < 0.0001,
+    "Hall of Thanes MapUtils path mismatch")
+assert(hall.entrance.source == "maputils_camelot_1.2.0", "Hall path source mismatch")
+
+local ruins = ns.DB.Dungeons.Forever.ruins_of_lordaeron
+assert(#(ruins.mapPoints or {}) == 1 and ruins.mapPoints[1].mapID == 1458, "Ruins of Lordaeron extra map point missing")
+assert(math.abs(ruins.mapPoints[1].x - 72.2) < 0.0001 and math.abs(ruins.mapPoints[1].y - 11.47) < 0.0001, "Ruins of Lordaeron Undercity point mismatch")
+local brd = ns.DB.Dungeons.Classic.blackrock_depths
+local brs = ns.DB.Dungeons.Classic.blackrock_spire
+assert(#(brd.mapPoints or {}) == 1 and brd.mapPoints[1].mapID == 1428, "BRD second Blackrock side missing")
+assert(math.abs(brd.mapPoints[1].x - 29.4) < 0.0001 and math.abs(brd.mapPoints[1].y - 38.3) < 0.0001, "BRD Burning Steppes point mismatch")
+assert(#(brs.mapPoints or {}) == 1 and brs.mapPoints[1].mapID == 1427, "BRS second Blackrock side missing")
+assert(math.abs(brs.mapPoints[1].x - 34.8) < 0.0001 and math.abs(brs.mapPoints[1].y - 85.3) < 0.0001, "BRS Searing Gorge point mismatch")
+local dm = ns.DB.Dungeons.Classic.dire_maul
+assert(#(dm.mapPoints or {}) == 2, "Dire Maul must retain West/East additional pins")
+assert(math.abs(dm.mapPoints[1].x - 60.3) < 0.0001 and math.abs(dm.mapPoints[1].y - 30.2) < 0.0001, "Dire Maul West point mismatch")
+assert(math.abs(dm.mapPoints[2].x - 64.8) < 0.0001 and math.abs(dm.mapPoints[2].y - 30.2) < 0.0001, "Dire Maul East point mismatch")
+
+local strat = ns.DB.Dungeons.Classic.stratholme
+assert(strat.coordSource ~= "maputils_camelot_1.2.0", "Stratholme must not claim a MapUtils pin that is absent from source")
+
+local core = assert(io.open("Core.lua", "rb")):read("*a")
+assert(core:find('type(instance.mapID) == "number"', 1, true), "Core.lua must prefer explicit source mapID")
+assert(core:find('makeMapPointMarker', 1, true), "Core.lua must render additional source map points")
+print("MapUtils coordinates: 20 primary dungeon records + multi-point records verified")
 LUA
 }
 
@@ -470,6 +543,7 @@ stage "Lua syntax"             lua_syntax
 stage "Content classification" content_classification_data
 stage "Dungeon territory data" dungeon_territory_data
 stage "Entrance coordinate data" entrance_coordinate_data
+stage "MapUtils coordinate data" maputils_coordinate_data
 stage "Atlas metadata"          atlas_metadata_data
 stage "Tooltip localization"   localization_tooltip_keys
 stage "Release file layout"   release_layout

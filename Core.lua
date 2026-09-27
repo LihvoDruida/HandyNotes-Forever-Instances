@@ -300,6 +300,12 @@ local function namesForInstance(instance)
 end
 
 local function resolveMapID(instance, legacy)
+    -- MapUtils-derived records carry the exact Forever UIMapID. Prefer it when
+    -- the current client exposes that map, then fall back to name resolution.
+    if instance and type(instance.mapID) == "number" and safeGetMapInfo(instance.mapID) then
+        return instance.mapID
+    end
+
     if not mapNameIndex then buildMapIndex() end
 
     local bestInfo, bestScore
@@ -414,6 +420,58 @@ local function hasUsablePoint(x, y)
     return type(x) == "number" and type(y) == "number" and x > 0 and y > 0
 end
 
+local function makeMapPointMarker(instance, point, index)
+    if type(instance) ~= "table" or type(point) ~= "table" then return nil end
+    if not hasUsablePoint(point.x, point.y) then return nil end
+
+    -- Additional source points are normal instance pins, not green entrance
+    -- flags. This is required for MapUtils records such as Dire Maul's three
+    -- wing entrances and Blackrock Mountain's two zone-side map points.
+    if type(point.mapID) == "number" and type(instance.mapID) == "number"
+        and point.mapID == instance.mapID
+        and hasUsablePoint(instance.x, instance.y)
+        and math.abs(point.x - instance.x) < 0.01
+        and math.abs(point.y - instance.y) < 0.01 then
+        return nil
+    end
+
+    return {
+        name = instance.name,
+        aliases = instance.aliases,
+        contentType = canonicalKind(instance),
+        era = canonicalEra(instance),
+        zone = point.zone or instance.zone,
+        parentZone = point.parentZone or instance.parentZone,
+        location = point.location or instance.location,
+        territory = point.territory or instance.territory,
+        mapID = point.mapID,
+        x = point.x,
+        y = point.y,
+        players = instance.players,
+        maxPlayers = instance.maxPlayers,
+        levelMin = instance.levelMin,
+        levelMax = instance.levelMax,
+        bossCount = instance.bossCount,
+        origin = instance.origin,
+        availableInForever = instance.availableInForever,
+        foreverStatus = instance.foreverStatus,
+        isForeverNew = instance.isForeverNew,
+        descriptionKey = instance.descriptionKey,
+        foreverChangeKey = instance.foreverChangeKey,
+        noteKey = instance.noteKey,
+        wings = instance.wings,
+        atlas = instance.atlas,
+        coordStatus = "source_map_point",
+        coordSource = point.source or instance.coordSource,
+        _kind = instance._kind,
+        _group = instance._group,
+        _id = tostring(instance._id or instance.name or "instance") .. "_map_point_" .. tostring(index or 1),
+        isMapPointMarker = true,
+        mapPointLabel = point.label,
+        targetInstance = instance,
+    }
+end
+
 local function makeEntranceMarker(instance)
     if type(instance) ~= "table" or type(instance.entrance) ~= "table" then
         return nil
@@ -507,6 +565,27 @@ local function rebuildNodes()
                             zone = instance.zone,
                             name = instance.name,
                         }
+                    end
+
+                    -- Some MapUtils dungeon records intentionally expose more than one
+                    -- normal world-map point. Render every additional source point instead
+                    -- of collapsing Dire Maul/Blackrock/Ruins of Lordaeron to one pin.
+                    for pointIndex, point in ipairs(instance.mapPoints or {}) do
+                        local pointMarker = makeMapPointMarker(instance, point, pointIndex)
+                        if pointMarker then
+                            local pointMapID = resolveMapID(pointMarker, nil)
+                            if pointMapID then
+                                pointMarker._mapID = pointMapID
+                                addNode(pointMapID, packCoord(pointMarker.x, pointMarker.y), pointMarker)
+                                addAncestorRelation(pointMapID)
+                            else
+                                unresolved[pointMarker._id] = {
+                                    reason = "map_point_unresolved",
+                                    zone = pointMarker.zone,
+                                    name = pointMarker.name,
+                                }
+                            end
+                        end
                     end
 
                     -- Entrance points are independent from the main point. The
@@ -886,7 +965,7 @@ local function atlasNamesForInstance(instance)
         table.insert(result, value)
     end
 
-    local canonical = instance.isEntranceMarker and instance.targetInstance or instance
+    local canonical = (instance.isEntranceMarker or instance.isMapPointMarker) and instance.targetInstance or instance
     add(canonical and canonical.name)
     for _, alias in ipairs((canonical and canonical.aliases) or {}) do add(alias) end
     for _, alias in ipairs((canonical and canonical.atlas and canonical.atlas.atlasNames) or {}) do add(alias) end
@@ -913,7 +992,7 @@ local function buildAtlasNameIndex()
 end
 
 local function findAtlasMapKey(instance)
-    local canonical = instance and (instance.isEntranceMarker and instance.targetInstance or instance) or nil
+    local canonical = instance and ((instance.isEntranceMarker or instance.isMapPointMarker) and instance.targetInstance or instance) or nil
     if not canonical then return nil end
 
     local cacheKey = canonical._id or canonical.name
@@ -976,7 +1055,7 @@ end
 local function firstVisibleInstance(node)
     for _, instance in ipairs((node and node.instances) or {}) do
         if nodeVisible(instance) then
-            return instance.isEntranceMarker and (instance.targetInstance or instance) or instance
+            return (instance.isEntranceMarker or instance.isMapPointMarker) and (instance.targetInstance or instance) or instance
         end
     end
     return nil
@@ -1123,6 +1202,10 @@ local function renderInstanceTooltip(tooltip, instance)
         if type(accessLabel) == "string" and accessLabel ~= "" then
             addTooltipDetail(tooltip, L("ACCESS_LABEL"), accessLabel)
         end
+    end
+
+    if instance.isMapPointMarker and type(instance.mapPointLabel) == "string" and instance.mapPointLabel ~= "" then
+        addTooltipDetail(tooltip, L("MAP_POINT_LABEL"), instance.mapPointLabel)
     end
 
     if db.showDescriptions then
