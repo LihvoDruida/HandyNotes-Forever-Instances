@@ -214,8 +214,16 @@ checks={
     'Blizzard side-tab hover glow': 'QuestLog-Tab-side-Glow-hover' in b,
     'Blizzard dungeon atlas': 'SafeAtlas(icon, "Dungeon", false)' in b,
     'foreign managed-tab discovery': 'child.displayMode == nil' in b and 'GetVisibleManagedSideTabs(qmf)' in b,
+    'generic Blizzard-style peer discovery': 'GetVisibleQuestStyleSideTabs(qmf)' in b and 'QuestLog-tab-side' in b,
+    'post-mouseup external tab handoff': 'HandoffAfterDestination' in b and 'externalTabHandoffPhase = "post-mouseup"' in b and 'OnMouseDown", function(_, button)\n        if button == "LeftButton" then HandoffAfterDestination() end' not in b,
+    'fallback quest visual arbitration': 'GetQuestTabIconIdentities' in b and 'IsFallbackQuestTab' in b and 'nativeQuestsActive' in b and 'CountExternalSelectedGlows' in b,
+    'cooperative detached-tab release': 'ReleaseOtherDetachedPanels(qmf)' in b and 'lastSystemDisplayMode' in b,
     'own tab excluded from foreign displayMode chain': 'tab.displayMode = "ForeverInstancesBrowser"' not in b,
-    'bounded deferred layout': 'C_Timer.After(0.12, PlaceTab)' in b and 'C_Timer.After(0.40, PlaceTab)' in b,
+    'Blizzard-owned map reopen lifecycle': 'Do not make the addon tab sticky across World Map close/reopen' in b,
+    'no sticky browser reopen state': 'lastSelectedWasOurs' not in b and 'restoreBrowser' not in b,
+    'map close restores native mode': 'WorldMapFrame:HookScript("OnHide"' in b and 'Browser:Hide(true)' in b,
+    'shared tab manager sync': 'LibWorldMapTabs' in b and 'pcall(lib.SetDisplayMode, lib, nil)' in b,
+    'native content exclusivity': 'HideNativeQuestMapContent(qmf)' in b,
     'no continuous layout watcher': 'SetScript("OnUpdate"' not in b,
     'nil SetDisplayMode selection': 'pcall(qmf.SetDisplayMode, qmf)' in b,
     'single canonical browser source': 'GetCanonicalLocation(instance)' in b,
@@ -231,7 +239,7 @@ checks={
 }
 bad=[k for k,v in checks.items() if not v]
 assert not bad, 'failed architecture checks: ' + ', '.join(bad)
-print('Quest-style detached UI + stable foreign-tab chaining + canonical coordinate architecture: OK')
+print('Quest-style detached UI + Blizzard-owned map lifecycle + canonical coordinate architecture: OK')
 PY2
 }
 
@@ -302,7 +310,13 @@ diagnostic_surface() {
     grep -Fq 'Single canonical coordinate source' Diagnostic.lua || return 1
     grep -Fq 'Quest-style panel / scroll surface' Diagnostic.lua || return 1
     grep -Fq 'Quest-style detached side-tab chain' Diagnostic.lua || return 1
+    grep -Fq 'External side-tab handoff coverage' Diagnostic.lua || return 1
+    grep -Fq 'Custom side-tab visual exclusivity' Diagnostic.lua || return 1
+    grep -Fq 'Blizzard default map reopen lifecycle' Diagnostic.lua || return 1
     grep -Fq 'Browser:GetDebugState' InstanceBrowser.lua || return 1
+    ! grep -Fq 'lastSelectedWasOurs' InstanceBrowser.lua || return 1
+    ! grep -Fq 'restoreBrowser()' InstanceBrowser.lua || return 1
+    grep -Fq 'Do not make the addon tab sticky across World Map close/reopen' InstanceBrowser.lua || return 1
 }
 
 stage "Lua syntax" lua_syntax

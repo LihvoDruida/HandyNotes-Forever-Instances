@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.0.29] - 2026-10-01
+
+### 🐛 Bug Fixes
+- Fix simultaneous selected state between Forever Instances and an external fallback Quests tab.
+- Recognize fallback Quests tabs from Blizzard's active/inactive quest-tab atlas metadata instead of comparing only the currently displayed icon, which changes with tab state on Forever.
+- While the dungeon browser is selected, suppress only positively identified fallback-Quests selected glow/icon tint; arbitrary third-party custom tabs remain untouched.
+- Restore fallback-Quests visuals from the actual Blizzard `QuestMapFrame.displayMode`, preventing stale yellow tabs and preserving one-active-tab behavior.
+- Fix one-click return to Quests from Forever Instances: a fallback Quests tab is now correctly classified, so the native Blizzard display mode is restored instead of leaving a blank gray sidebar.
+- Fix a diagnostic Lua multi-return bug that reported valid Deadmines coordinates as `0.0,0.0`; the canonical database record itself was already correct.
+
+### 🧪 Diagnostics
+- `/fitest` now validates the corrected canonical coordinate read and fallback-Quests visual arbitration.
+
+## [1.0.28] - 2026-10-01
+
+### 🐛 Bug Fixes
+- Fix the blank gray World Map sidebar that could appear when switching from Forever Instances to another custom map tab.
+- Remove the pre-click (`OnMouseDown`) foreign-tab handoff. External custom tabs now receive the click first and Forever Instances releases its panel only from a post-`OnMouseUp` hook, matching the working reference addon's tab-switch lifecycle.
+- Stop directly owning or restoring another addon's icon/glow state. Foreign tabs keep responsibility for their own selected visuals.
+- Before opening Forever Instances from another detached custom tab, briefly hand control back through the last valid Blizzard QuestMapFrame display mode. Cooperative detached tabs observe that normal mode change and close themselves through their own hooks before Forever Instances selects its panel.
+- Keep native Blizzard tabs entirely out of the generic foreign-tab hook path; native Quests / Events / Map Legend switches are handled only by `QuestMapFrame:SetDisplayMode`.
+- Preserve taint-safe integration: no `TabButtons` / `ContentFrames` mutation and no addon MapCanvas pin.
+
+### 🧪 Diagnostics
+- Report the external handoff phase as `post-mouseup` and validate only non-native custom/fallback side-tab hooks.
+- Keep custom-tab exclusivity diagnostics without mutating foreign tab visuals.
+
+## [1.0.27] - 2026-10-01
+
+### 🐛 Bug Fixes
+- Make Forever Instances mutually exclusive with other Blizzard-style custom World Map side tabs, not only fallback Quests tabs.
+- When the dungeon browser is selected, suppress the selected glow and active icon tint of every other custom `QuestLog-tab-side` sibling so two addon tabs cannot remain yellow at the same time.
+- Use a two-phase generic handoff (`OnMouseDown` + `OnMouseUp`) for external custom tabs so switching away from Forever Instances remains reliable even when another addon consumes or replaces one of those mouse phases.
+- Restore Blizzard mode only for passive/fallback tabs with no `displayMode`; managed custom tabs receive control directly so the native quest panel is not painted over their content.
+- Keep all compatibility generic: no EasyFind/global frame names or other addon-specific runtime dependencies are introduced.
+
+### 🧪 Diagnostics
+- Add `/fitest` coverage for custom side-tab visual exclusivity and expose managed custom tab counts plus any external selected glows while Forever Instances is active.
+
 ## [1.0.26] - 2026-10-01
 
 ### 🐛 Bug Fixes

@@ -30,7 +30,6 @@ local searchText = ""
 local rowPool, headerPool = {}, {}
 local rowCursor, headerCursor = 1, 1
 local externalTabHooks = setmetatable({}, { __mode = "k" })
-local externalPassiveGlowState = setmetatable({}, { __mode = "k" })
 local systemModeHooks = setmetatable({}, { __mode = "k" })
 local worldMapTabsHookedLibrary = nil
 
@@ -542,6 +541,91 @@ local function GetVisibleQuestStyleSideTabs(qmf)
     return tabs
 end
 
+local function IsNativeQuestMapTab(tab, qmf)
+    return qmf and (tab == qmf.QuestsTab or tab == qmf.EventsTab or tab == qmf.MapLegendTab)
+end
+
+local function IsNativeDisplayMode(qmf, displayMode)
+    if not qmf or displayMode == nil then return false end
+    local tabs = { qmf.QuestsTab, qmf.EventsTab, qmf.MapLegendTab }
+    for _, tab in ipairs(tabs) do
+        if tab and tab.displayMode ~= nil and tab.displayMode == displayMode then return true end
+    end
+    return false
+end
+
+local function FindSideTabIcon(tab)
+    if not tab then return nil end
+    if tab.Icon and tab.Icon.GetObjectType and tab.Icon:GetObjectType() == "Texture" then return tab.Icon end
+    if not tab.GetRegions then return nil end
+    for i = 1, tab:GetNumRegions() do
+        local region = select(i, tab:GetRegions())
+        if region and region.GetObjectType and region:GetObjectType() == "Texture" then
+            local atlas = region.GetAtlas and region:GetAtlas()
+            local low = atlas and atlas:lower() or ""
+            if not low:find("questlog%-tab", 1, false) and not low:find("glow", 1, true) then
+                return region
+            end
+        end
+    end
+    return nil
+end
+
+local function GetSideTabIconIdentity(tab)
+    local icon = FindSideTabIcon(tab)
+    if not icon then return nil end
+    local atlas = icon.GetAtlas and icon:GetAtlas()
+    if atlas then return "atlas:" .. tostring(atlas) end
+    local texture = icon.GetTexture and icon:GetTexture()
+    if texture then return "texture:" .. tostring(texture) end
+    return nil
+end
+
+local function AddIconIdentity(set, kind, value)
+    if value == nil or value == "" then return end
+    set[tostring(kind) .. ":" .. tostring(value)] = true
+end
+
+-- Forever may keep Blizzard's real Quests tab hidden while another addon draws
+-- a visual return-to-quests tab.  The copied glyph can be either the active or
+-- inactive Blizzard atlas depending on load order, so comparing only the
+-- QuestsTab's *current* icon is not stable.  Build the identity set from the
+-- current icon plus Blizzard's active/inactive atlas metadata.
+local function GetQuestTabIconIdentities(qmf)
+    local set = {}
+    local questsTab = qmf and qmf.QuestsTab
+    if not questsTab then return set end
+
+    AddIconIdentity(set, "atlas", questsTab.activeAtlas)
+    AddIconIdentity(set, "atlas", questsTab.inactiveAtlas)
+
+    local icon = FindSideTabIcon(questsTab)
+    if icon then
+        AddIconIdentity(set, "atlas", icon.GetAtlas and icon:GetAtlas())
+        AddIconIdentity(set, "texture", icon.GetTexture and icon:GetTexture())
+    end
+    return set
+end
+
+local function IsFallbackQuestTab(tab, qmf)
+    if not tab or not qmf or tab.displayMode ~= nil or IsNativeQuestMapTab(tab, qmf) then return false end
+    local tabIdentity = GetSideTabIconIdentity(tab)
+    if not tabIdentity then return false end
+    return GetQuestTabIconIdentities(qmf)[tabIdentity] == true
+end
+
+local function CountExternalSelectedGlows(qmf)
+    if not qmf then return 0 end
+    local count = 0
+    for _, other in ipairs(GetVisibleQuestStyleSideTabs(qmf)) do
+        if not IsNativeQuestMapTab(other, qmf) then
+            local glow = FindAtlasTexture(other, "QuestLog-Tab-side-Glow-Select")
+            if glow and glow:IsShown() then count = count + 1 end
+        end
+    end
+    return count
+end
+
 local function RefreshSelectGlows()
     local qmf = _G.QuestMapFrame
     if not qmf then return end
@@ -566,32 +650,25 @@ local function RefreshSelectGlows()
         setGlow(tabFrame, false)
     end
 
-    -- WoW Forever addons can provide a fallback Quests side-tab with no
-    -- displayMode (EasyFind is one example). Such a tab otherwise keeps its
-    -- selected glow while our browser is active, producing two yellow tabs.
-    -- Detect this generically from Blizzard side-tab chrome, remember the
-    -- original glow state, hide it only for our active period, and restore it
-    -- untouched when our browser closes. No addon names are referenced.
+    -- A detached fallback Quests tab is semantically the native Quests state,
+    -- even when it was created by another addon.  While Forever Instances owns
+    -- the sidebar it must not remain selected, otherwise two side tabs are gold
+    -- at once.  We only arbitrate tabs positively identified as a Quests
+    -- fallback; arbitrary third-party custom tabs keep full ownership of their
+    -- own visuals.  Once our panel is released, the fallback is selected only
+    -- when Blizzard itself is actually in the Quests display mode.
+    local questsMode = qmf.QuestsTab and qmf.QuestsTab.displayMode or nil
+    local nativeQuestsActive = not selectedIsOurs and questsMode ~= nil and qmf.displayMode == questsMode
     for _, other in ipairs(GetVisibleQuestStyleSideTabs(qmf)) do
-        if other.displayMode == nil then
-            local glow = FindAtlasTexture(other, "QuestLog-Tab-side-Glow-Select")
-            if glow then
-                if selectedIsOurs then
-                    if externalPassiveGlowState[other] == nil then
-                        externalPassiveGlowState[other] = glow:IsShown() and true or false
-                    end
-                    glow:Hide()
-                elseif externalPassiveGlowState[other] ~= nil then
-                    glow:SetShown(externalPassiveGlowState[other])
-                    externalPassiveGlowState[other] = nil
-                end
-            end
+        if IsFallbackQuestTab(other, qmf) then
+            setGlow(other, nativeQuestsActive)
+            SetVertexColor(FindSideTabIcon(other), nativeQuestsActive and TAB_ICON_GOLD or TAB_ICON_DIM)
         end
     end
 
     if backTab then
-        setGlow(backTab, not selectedIsOurs)
-        SetVertexColor(backTab._fiIcon, selectedIsOurs and TAB_ICON_DIM or TAB_ICON_GOLD)
+        setGlow(backTab, nativeQuestsActive)
+        SetVertexColor(backTab._fiIcon, nativeQuestsActive and TAB_ICON_GOLD or TAB_ICON_DIM)
     end
     SetVertexColor(tabFrame and tabFrame._fiIcon, selectedIsOurs and TAB_ICON_GOLD or TAB_ICON_DIM)
 end
@@ -885,19 +962,27 @@ local function GetVisibleManagedSideTabs(qmf)
 end
 
 local function HookExternalTab(tab)
-    if not tab or tab == tabFrame or tab == backTab or externalTabHooks[tab] or not tab.HookScript then return end
+    local qmf = _G.QuestMapFrame
+    if not tab or tab == tabFrame or tab == backTab or IsNativeQuestMapTab(tab, qmf)
+       or externalTabHooks[tab] or not tab.HookScript then
+        return
+    end
     externalTabHooks[tab] = true
 
-    -- Handoff on mouse-down, before the destination tab's own mouse-up logic.
-    -- This is important on WoW Forever: fallback Quests tabs supplied by another
-    -- addon often only know how to close their *own* panel. If our browser is
-    -- active, their mouse-up can otherwise be a no-op and the player gets stuck
-    -- with both tabs highlighted. Restoring Blizzard's last real display mode
-    -- first gives every following tab click a clean, native starting state.
-    pcall(tab.HookScript, tab, "OnMouseDown", function(_, button)
-        if button == "LeftButton" and selectedIsOurs then
-            Browser:Hide(true)
-        end
+    local function HandoffAfterDestination()
+        if not selectedIsOurs then return end
+        -- IMPORTANT: run only AFTER the destination tab's own mouse-up handler.
+        -- The reference MapSearch addon documents the exact failure caused by
+        -- restoring/hiding during the first half of a tab click: the destination
+        -- can end up with qmf.displayMode=nil and a blank gray sidebar until a
+        -- second click.  A post-click handoff lets the destination establish its
+        -- own panel first, then releases ours without painting Blizzard content
+        -- over it.  Only a passive Quests-return tab requests native restoration.
+        Browser:Hide(IsFallbackQuestTab(tab, _G.QuestMapFrame))
+    end
+
+    pcall(tab.HookScript, tab, "OnMouseUp", function(_, button)
+        if button == "LeftButton" then HandoffAfterDestination() end
     end)
 end
 
@@ -1037,6 +1122,23 @@ local function HideNativeQuestMapContent(qmf)
     if qmf.MapLegend and qmf.MapLegend.IsShown and qmf.MapLegend:IsShown() then qmf.MapLegend:Hide() end
 end
 
+local function ReleaseOtherDetachedPanels(qmf)
+    if not qmf or type(qmf.SetDisplayMode) ~= "function" then return false end
+    if IsNativeDisplayMode(qmf, qmf.displayMode) then return false end
+
+    -- Detached map tabs such as the reference MapSearch surface listen for a
+    -- *real* Blizzard display mode to know that another tab has taken control.
+    -- If one of those tabs left QuestMapFrame in nil mode, briefly hand control
+    -- back to the last native mode before selecting Forever Instances.  This is
+    -- a valid Blizzard mode (never a fabricated enum/string), so cooperative
+    -- custom tabs close themselves through their own secure hooks and restore
+    -- their own icon/glow state.  We immediately leave that native mode below.
+    local nativeMode = lastSystemDisplayMode or (qmf.QuestsTab and qmf.QuestsTab.displayMode)
+    if nativeMode == nil then return false end
+    local ok = pcall(qmf.SetDisplayMode, qmf, nativeMode)
+    return ok == true
+end
+
 local function DeactivateOtherMapContents(qmf)
     if not qmf then return end
     if type(qmf.SetDisplayMode) == "function" then
@@ -1046,7 +1148,7 @@ local function DeactivateOtherMapContents(qmf)
         HideNativeQuestMapContent(qmf)
     end
 
-    -- Match the proven map-tab lifecycle used by EasyFind: third-party map
+    -- Match the proven detached map-tab lifecycle: third-party map
     -- tab frameworks do not necessarily react to QuestMapFrame:nil, so use
     -- their public shared-library API when it is present.  No foreign addon
     -- names or frames are referenced.
@@ -1073,11 +1175,12 @@ end
 local function InstallSystemModeHook(qmf)
     if not qmf or systemModeHooks[qmf] then return end
     systemModeHooks[qmf] = true
-    lastSystemDisplayMode = qmf.displayMode or (qmf.QuestsTab and qmf.QuestsTab.displayMode)
+    local initialMode = qmf.displayMode or (qmf.QuestsTab and qmf.QuestsTab.displayMode)
+    if IsNativeDisplayMode(qmf, initialMode) then lastSystemDisplayMode = initialMode end
     if type(hooksecurefunc) == "function" and type(qmf.SetDisplayMode) == "function" then
         hooksecurefunc(qmf, "SetDisplayMode", function(_, displayMode)
             if displayMode ~= nil then
-                lastSystemDisplayMode = displayMode
+                if IsNativeDisplayMode(qmf, displayMode) then lastSystemDisplayMode = displayMode end
                 if selectedIsOurs then Browser:Hide(false) end
             end
         end)
@@ -1099,6 +1202,12 @@ function Browser:Show()
     if not qmf then return false end
 
     if panel.MeasureBlizzardSearch then panel.MeasureBlizzardSearch() end
+
+    -- If another detached custom tab currently owns a nil QuestMapFrame mode,
+    -- give it a normal Blizzard-mode handoff first. This mirrors the reference
+    -- addon's coexistence contract and prevents two independent panels from
+    -- remaining selected at the same time.
+    ReleaseOtherDetachedPanels(qmf)
 
     selectedIsOurs = true
     prevBlizzardDisplayMode = qmf.displayMode or lastSystemDisplayMode
@@ -1213,12 +1322,18 @@ function Browser:GetDebugState()
         for _, value in ipairs(qmf.ContentFrames) do if value == panel.outer then contentArrayTouched = true break end end
     end
     local managedCount = qmf and #GetVisibleManagedSideTabs(qmf) or 0
-    local questStyleCount, passiveCount, hookedCount = 0, 0, 0
+    local questStyleCount, passiveCount, hookedCount, customManagedCount, customUnmanagedCount = 0, 0, 0, 0, 0
     if qmf then
         local allSideTabs = GetVisibleQuestStyleSideTabs(qmf)
         questStyleCount = #allSideTabs
         for _, sideTab in ipairs(allSideTabs) do
-            if sideTab.displayMode == nil then passiveCount = passiveCount + 1 end
+            if IsFallbackQuestTab(sideTab, qmf) then
+                passiveCount = passiveCount + 1
+            elseif not IsNativeQuestMapTab(sideTab, qmf) and sideTab.displayMode == nil then
+                customUnmanagedCount = customUnmanagedCount + 1
+            elseif not IsNativeQuestMapTab(sideTab, qmf) then
+                customManagedCount = customManagedCount + 1
+            end
             if externalTabHooks[sideTab] then hookedCount = hookedCount + 1 end
         end
     end
@@ -1242,7 +1357,11 @@ function Browser:GetDebugState()
         sideTabsDetected = managedCount,
         questStyleSideTabsDetected = questStyleCount,
         passiveSideTabsDetected = passiveCount,
+        customManagedSideTabsDetected = customManagedCount,
+        customUnmanagedSideTabsDetected = customUnmanagedCount,
         externalTabHandoffHooks = hookedCount,
+        externalTabHandoffPhase = "post-mouseup",
+        externalSelectedGlows = qmf and CountExternalSelectedGlows(qmf) or 0,
         tabCollisions = self:GetTabCollisionCount(),
         tabDisplayMode = tabFrame and tabFrame.displayMode or nil,
         tabAnchorMode = tabAnchorMode,

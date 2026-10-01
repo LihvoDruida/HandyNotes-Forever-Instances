@@ -434,7 +434,10 @@ function Runner:RunCoreTests()
         for _, parent in ipairs({ sm, dire, brs, strat }) do
             for _ in pairs(parent.wings or {}) do wingCount = wingCount + 1 end
         end
-        local mapID, x, y = ns.DB.GetCanonicalLocation and ns.DB.GetCanonicalLocation(dm)
+        local mapID, x, y
+        if type(ns.DB.GetCanonicalLocation) == "function" then
+            mapID, x, y = ns.DB.GetCanonicalLocation(dm)
+        end
         local ok = dm.levelMin == 17 and dm.levelMax == 26
             and mapID == 1436 and x == 38.2 and y == 77.5
             and wingCount == 11
@@ -765,19 +768,22 @@ function Runner:PrepareBrowserTest()
             and state.tabDisplayMode == nil
             and anchorOK
             and (state.tabCollisions or 0) == 0,
-            string.format("questStyle=%s atlas=%s ownDisplayMode=%s anchor=%s:%s managed=%s questStylePeers=%s passive=%s handoffHooks=%s collisions=%s tabs=%s",
+            string.format("questStyle=%s atlas=%s ownDisplayMode=%s anchor=%s:%s managed=%s questStylePeers=%s customManaged=%s customUnmanaged=%s passive=%s handoffHooks=%s collisions=%s tabs=%s",
                 tostring(state.questStyleTab), tostring(state.usesBlizzardDungeonAtlas), tostring(state.tabDisplayMode),
                 tostring(state.tabAnchorMode), tostring(state.tabAnchorName), tostring(state.sideTabsDetected),
-                tostring(state.questStyleSideTabsDetected), tostring(state.passiveSideTabsDetected),
+                tostring(state.questStyleSideTabsDetected), tostring(state.customManagedSideTabsDetected), tostring(state.customUnmanagedSideTabsDetected), tostring(state.passiveSideTabsDetected),
                 tostring(state.externalTabHandoffHooks), tostring(state.tabCollisions),
                 #names > 0 and table.concat(names, ",") or "none")
     end)
 
     self:Test("External side-tab handoff coverage", function()
         local state = type(browser.GetDebugState) == "function" and browser:GetDebugState() or {}
-        local peers = tonumber(state.questStyleSideTabsDetected) or 0
+        local targets = (tonumber(state.customManagedSideTabsDetected) or 0)
+            + (tonumber(state.customUnmanagedSideTabsDetected) or 0)
+            + (tonumber(state.passiveSideTabsDetected) or 0)
         local hooks = tonumber(state.externalTabHandoffHooks) or 0
-        return hooks >= peers, string.format("peers=%d passive=%s hooks=%d", peers, tostring(state.passiveSideTabsDetected), hooks)
+        return hooks >= targets and state.externalTabHandoffPhase == "post-mouseup",
+            string.format("targets=%d passive=%s hooks=%d phase=%s", targets, tostring(state.passiveSideTabsDetected), hooks, tostring(state.externalTabHandoffPhase))
     end)
 
     self:Test("Simulated addon side-tab click", function()
@@ -802,6 +808,14 @@ function Runner:InspectBrowserOpen(search)
     self:Test("Side tab selected state", function()
         local state = type(browser.GetDebugState) == "function" and browser:GetDebugState() or {}
         return state.tabSelected == true, "selected=" .. tostring(state.tabSelected)
+    end)
+
+    self:Test("Custom side-tab visual exclusivity", function()
+        local state = type(browser.GetDebugState) == "function" and browser:GetDebugState() or {}
+        local selectedPeers = tonumber(state.externalSelectedGlows) or 0
+        return selectedPeers == 0,
+            string.format("customManaged=%s customUnmanaged=%s passive=%s externalSelectedGlows=%d",
+                tostring(state.customManagedSideTabsDetected), tostring(state.customUnmanagedSideTabsDetected), tostring(state.passiveSideTabsDetected), selectedPeers)
     end)
 
     self:Test("Browser full-list rendering", function()
