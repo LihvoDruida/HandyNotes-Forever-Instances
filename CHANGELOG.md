@@ -1,5 +1,106 @@
 # Changelog
 
+## [1.0.20] - 2026-10-01
+
+### 🛠️ UI / UX
+- Replace the reference-specific world-map integration with an independently implemented browser architecture that has no hard-coded dependency on EasyFind, ForeverDungeonMaps, or any other addon.
+- Build the side tab from Blizzard's `LargeSideTabButtonTemplate`, keep the addon icon/content unique, and use the stock `SearchBoxTemplate`, `ScrollFrameTemplate`, `QuestLogBorderFrameTemplate`, and `QuestLog-main-background` for the surrounding UI.
+- Detect visible side tabs generically by live frame geometry, place the Forever Instances tab below the current lowest tab, and reflow while the World Map is open or when later addons load/show/hide tabs.
+- Add a collision guard so the addon tab does not occupy the same screen rectangle as another World Map side tab.
+- Align the browser panel directly to Blizzard's live `QuestMapFrame.QuestsFrame` instead of copying another addon's panel geometry.
+- Keep the browser detached from Blizzard `TabButtons` / `ContentFrames` so the protected-action taint fix remains intact.
+
+### 🧱 Data / Coordinates
+- Preserve the single canonical `Database.lua -> mapID/x/y` coordinate contract. HandyNotes, the browser, map opening, and TomTom continue to read the same instance/wing record with no additional coordinate store.
+
+### 🧪 Diagnostics
+- Extend `/fitest` with checks for Blizzard-native tab/scroll templates and zero side-tab rectangle collisions.
+- Update the architecture gate to reject hard-coded third-party tab integration in runtime code.
+
+## [1.0.19] - 2026-09-30
+
+### 🛠️ UI / UX
+- Rebuild the World Map instance browser around the supplied EasyFind `MapTab` layout and switching model: detached side tab, sibling `ContentsAnchor` panel, 29 px search strip, 22 px right inset, quest-log paper/border, `MinimalScrollBar`, and matching tab selection/restore behavior.
+- Keep Forever Instances' own two-line instance rows and search content while using the same surrounding panel geometry and scroll mechanics as EasyFind.
+- Keep the browser out of Blizzard `TabButtons` / `ContentFrames` and continue using nil `QuestMapFrame:SetDisplayMode()` selection so the v1.0.17 taint fix remains intact.
+
+### 🧱 Data / Coordinates
+- Promote `mapID/x/y` to the single canonical location contract for every browser/map entry.
+- Remove `LegacyFallback.lua`, `entrance`, `alternateEntrances`, `mapPoints`, and the obsolete `entrance_flag.tga` marker path.
+- Build HandyNotes pins from the same wing-expanded `GetBrowserEntries()` records used by the sidebar, so list navigation, map pins, and TomTom resolve to the exact same stored point.
+- Keep grouped parents for Scarlet Monastery, Dire Maul, Blackrock Spire, and Stratholme metadata-only; their wing rows own the actual coordinates.
+- Bump the database schema to 9.
+
+### 🧪 Diagnostics
+- Extend `/fitest` with a single-coordinate-source invariant and EasyFind-style panel/scroll geometry checks.
+- Update side-tab simulation for the frame-based `OnMouseUp` behavior used by EasyFind rather than `Button:Click()`.
+
+## [1.0.18] - 2026-09-30
+
+### 🐛 Bug Fixes
+- Fix the three failures reported by the in-game `/fitest` pass on Forever build 70124: zero-sized scroll geometry in diagnostics, search rendering not following programmatic/live edit-box text, and the no-match search case.
+- Anchor the detached browser to Blizzard's actual `QuestsFrame` rectangle so the overlay, search strip, border, and list viewport match the stock quest-log panel instead of approximating `ContentsAnchor` geometry.
+- Preserve Blizzard `ScrollFrameTemplate` / `ScrollUtil` mouse-wheel behavior when the client provides it; use a small 30px fallback only on clients without a native wheel handler.
+- Move the browser search box outside the scroll viewport, fully mask the underlying Blizzard quest content, and keep search state synchronized directly from the visible edit box.
+- During active search, expand matching sections automatically, hide empty continent headers, and show the stock no-results message when nothing matches.
+
+### 🧪 Diagnostics
+- Make `/fitest` force a render refresh after changing search text and validate the browser scroll viewport against the live `QuestMapFrame.QuestsFrame` dimensions and scrollbar presence.
+
+## [1.0.17] - 2026-09-30
+
+### 🐛 Bug Fixes
+- Remove browser writes to Blizzard `QuestMapFrame.TabButtons`, `ContentFrames`, and custom display-mode state after an in-game `ADDON_ACTION_BLOCKED` taint report involving protected `Button:SetPassThroughButtons()`.
+- Remove the addon-owned World Map canvas marker; opening an instance now relies on the addon's existing HandyNotes pin and the public `C_Map.OpenWorldMap()` API, avoiding direct `WorldMapFrame:SetMapID()` execution in addon taint context.
+- Rebuild the browser panel geometry around Blizzard's `QuestScrollFrame` layout: `ContentsAnchor` width, `ScrollFrameTemplate`, quest-style scrollbar offsets, mouse-wheel stepping/clamping, and correctly separated search/header/content regions.
+- Prevent the browser frame and scrollbar from overlapping the world-map side tabs and top border.
+
+### 🧱 Data
+- Synchronize dungeon level ranges, instance IDs, and entrance coordinates from the supplied `Instances.lua` dataset without importing boss or loot tables.
+- Preserve earlier verified access points as `alternateEntrances` instead of discarding them when the supplied entrance differs.
+- Expand Scarlet Monastery, Dire Maul, Blackrock Spire, and Stratholme into explicit browser wing rows with their own levels, group sizes, and coordinates.
+- Keep the canonical database at 37 top-level instances while the browser now renders 44 rows: 35 dungeon/wing rows plus 9 raids.
+
+### 🧪 Diagnostics
+- Update `/fitest` to verify that Blizzard tab/content arrays remain untouched and that no addon-owned MapCanvas marker exists.
+- Avoid simulated Blizzard-tab clicks in diagnostics so the diagnostic itself cannot be the source of protected-action taint.
+
+## [1.0.16] - 2026-09-30
+
+### 🧪 Diagnostics
+- Add `/fitest` (`/foreverinstancetest`) for an explicit live in-game regression/smoke pass.
+- Validate the canonical 37-instance database, normalized coordinates, continent split, dependencies, SavedVariables schema, localization parity, live `C_Map` resolution, native map-tab registration, tab switching, complete list rendering, and search behavior.
+- Capture test-time Lua errors plus available `UI_ERROR_MESSAGE`, `ADDON_ACTION_BLOCKED`, `ADDON_ACTION_FORBIDDEN`, and `LUA_WARNING` events without suppressing the normal game error handler.
+- Open a movable copyable report window after the run with PASS / FAIL / WARN / SKIP results, elapsed time, memory delta, captured errors, and captured client events.
+- Add `/fitest show` to reopen the latest session report.
+- Restore map-browser display mode, search text, and continent collapse state after the simulation.
+
+## [1.0.15] - 2026-09-30
+
+### 🚀 New Features
+- Add a full world-map **Dungeons & Raids** browser based on the ForeverDungeonMaps list UI.
+- Read every row, level range, zone, map ID, and navigation coordinate from the canonical `Database.lua` records instead of maintaining a second location database.
+- Add search, continent groups, collapse/expand headers, active-row highlighting, map navigation, temporary map ping, and TomTom integration.
+
+### 🛠️ UI / UX
+- Register the new side tab through Blizzard's native `QuestMapFrame.TabButtons` / `ContentFrames` display-mode system when available, so clicking it and the built-in Quests / Events / Map Legend tabs switches content exactly through `QuestMapFrame:SetDisplayMode()`.
+- Match the stock quest-log side-tab artwork, checked glow, hover glow, panel background, headers, list spacing, and scrollbar behavior.
+- Keep compatibility fallbacks for Forever builds where the native tab arrays are unavailable.
+
+### 🧱 Data
+- Add shared continent metadata and a canonical browser-entry helper to `Database.lua`; no dungeon or raid coordinates are duplicated in the UI module.
+
+## [1.0.14] - 2026-09-27
+
+### 🗺️ Map Data
+- Replace primary coordinates for every dungeon covered by the supplied **MapUtils 1.2.0 Camelot** database with its exact world-map pins and UIMapIDs.
+- Preserve MapUtils multi-point records instead of collapsing them: Hall of the Thanes path, Ruins of Lordaeron Undercity point, both Blackrock Mountain sides, and all three Dire Maul wing points.
+- Keep Stratholme and Forever-only dungeons absent from MapUtils unchanged rather than inventing source data.
+
+### 🛠️ Refactor
+- Add explicit `mapID` support and `mapPoints` rendering for source-authored multi-point dungeon locations.
+- Prefer a verified explicit UIMapID when present, with the existing map-name resolver retained as fallback.
+
 ## [1.0.12] - 2026-09-23
 
 ### 🚀 New Features

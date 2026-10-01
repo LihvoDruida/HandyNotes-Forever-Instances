@@ -30,3 +30,7 @@ Blizzard Entertainment or their respective rights holders.
 ## Atlas metadata
 
 `AtlasData.lua` was generated from factual AreaID values in the user-supplied **Atlas v1.53.00** `Data/AreaIDs_ClassicForever.lua` table, which is distributed by the Atlas project under GPLv2. No Atlas implementation code or map artwork is bundled in Forever Instances. Atlas is an optional external addon.
+
+## MapUtils coordinate data
+
+Dungeon `UIMapID` and world-map X/Y values in the v1.0.14 coordinate refresh were transcribed from factual pin data in the user-supplied **MapUtils 1.2.0 Camelot** `pins.lua` by D4KiR. MapUtils is All Rights Reserved. No MapUtils implementation code, libraries, media, or artwork are bundled in Forever Instances.

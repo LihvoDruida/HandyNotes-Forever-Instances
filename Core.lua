@@ -21,7 +21,6 @@ local ASSET_ROOT = "Interface\\AddOns\\" .. addonName .. "\\"
 local ICON_DUNGEON = ASSET_ROOT .. "dungeon.tga"
 local ICON_RAID = ASSET_ROOT .. "raid.tga"
 local ICON_FOREVER_DUNGEON = ASSET_ROOT .. "forever_dungeon.tga"
-local ICON_ENTRANCE = ASSET_ROOT .. "entrance_flag.tga"
 
 local HandyNotes = LibStub and LibStub("AceAddon-3.0", true) and LibStub("AceAddon-3.0"):GetAddon("HandyNotes", true)
 local AceDB = LibStub and LibStub("AceDB-3.0", true)
@@ -49,6 +48,12 @@ local defaults = {
         showCoordinates = true,
         showDescriptions = true,
         showNotes = true,
+        browser = {
+            collapsed = {
+                ["Eastern Kingdoms"] = false,
+                ["Kalimdor"] = false,
+            },
+        },
     },
 }
 
@@ -58,8 +63,6 @@ local worldNodes = {}
 local worldNodesDirty = true
 local ancestorZones = {}
 local unresolved = {}
-local mapNameIndex = nil
-local ancestorNameCache = {}
 local initialized = false
 local waypointHandles = {}
 local atlasMapKeyCache = {}
@@ -103,6 +106,12 @@ local function optionalL(key, ...)
     end
     return text
 end
+
+-- Shared localization/profile access for companion UI modules. Keeping these
+-- behind functions prevents the instance browser from duplicating locale or
+-- SavedVariables state owned by this core module.
+ns.L = L
+ns.GetProfile = function() return db end
 
 local function localizedDescription(instance)
     if not instance or type(instance.descriptionKey) ~= "string" then return nil end
@@ -179,209 +188,6 @@ local function safeGetMapInfo(mapID)
     return nil
 end
 
-local function addMapCandidate(index, info)
-    if type(info) ~= "table" or type(info.mapID) ~= "number" or type(info.name) ~= "string" then
-        return
-    end
-
-    local key = normalizeName(info.name)
-    if key == "" then return end
-
-    index[key] = index[key] or {}
-    for _, existing in ipairs(index[key]) do
-        if existing.mapID == info.mapID then
-            return
-        end
-    end
-    table.insert(index[key], info)
-end
-
-local function buildMapIndex()
-    local index = {}
-
-    -- Forever exposes the modern C_Map API. Azeroth (947) is the main root;
-    -- Cosmic (946) is also scanned as a safe fallback for client-side changes.
-    if C_Map and type(C_Map.GetMapChildrenInfo) == "function" then
-        for _, rootID in ipairs({ WORLD_MAP_ID, 946 }) do
-            local rootInfo = safeGetMapInfo(rootID)
-            if rootInfo then addMapCandidate(index, rootInfo) end
-
-            local ok, children = pcall(C_Map.GetMapChildrenInfo, rootID, nil, true)
-            if ok and type(children) == "table" then
-                for _, info in ipairs(children) do
-                    addMapCandidate(index, info)
-                end
-            end
-        end
-    end
-
-    -- Also index every legacy map ID from the supplied base addon if that map
-    -- still exists in the current Forever client.
-    for _, bucket in pairs(ns.LegacyFallback or {}) do
-        for _, legacy in pairs(bucket) do
-            local info = safeGetMapInfo(legacy.mapID)
-            if info then addMapCandidate(index, info) end
-        end
-    end
-
-    -- Finally include the player's current map and its ancestry. This helps on
-    -- beta builds where a brand-new Forever map is not yet attached to 947.
-    if C_Map and type(C_Map.GetBestMapForUnit) == "function" then
-        local ok, current = pcall(C_Map.GetBestMapForUnit, "player")
-        if ok and current then
-            local seen = {}
-            while current and current ~= 0 and not seen[current] do
-                seen[current] = true
-                local info = safeGetMapInfo(current)
-                if not info then break end
-                addMapCandidate(index, info)
-                current = info.parentMapID
-            end
-        end
-    end
-
-    mapNameIndex = index
-end
-
-local function getAncestorNameSet(mapID)
-    if ancestorNameCache[mapID] then
-        return ancestorNameCache[mapID]
-    end
-
-    local result = {}
-    local seen = {}
-    local current = mapID
-
-    while current and current ~= 0 and not seen[current] do
-        seen[current] = true
-        local info = safeGetMapInfo(current)
-        if not info then break end
-        result[normalizeName(info.name)] = true
-        current = info.parentMapID
-    end
-
-    ancestorNameCache[mapID] = result
-    return result
-end
-
-local function candidateScore(info, parentZone)
-    local score = 0
-
-    if Enum and Enum.UIMapType then
-        if info.mapType == Enum.UIMapType.Zone then
-            score = score + 100
-        elseif info.mapType == Enum.UIMapType.Orphan then
-            score = score + 60
-        elseif info.mapType == Enum.UIMapType.Continent then
-            score = score + 10
-        elseif info.mapType == Enum.UIMapType.Dungeon then
-            score = score - 100
-        end
-    end
-
-    if parentZone then
-        local ancestors = getAncestorNameSet(info.mapID)
-        if ancestors[normalizeName(parentZone)] then
-            score = score + 50
-        end
-    end
-
-    return score
-end
-
-local function namesForInstance(instance)
-    local names = { instance.zone }
-    if type(instance.aliasesZones) == "table" then
-        for _, alias in ipairs(instance.aliasesZones) do
-            table.insert(names, alias)
-        end
-    end
-    return names
-end
-
-local function resolveMapID(instance, legacy)
-    -- MapUtils-derived records carry the exact Forever UIMapID. Prefer it when
-    -- the current client exposes that map, then fall back to name resolution.
-    if instance and type(instance.mapID) == "number" and safeGetMapInfo(instance.mapID) then
-        return instance.mapID
-    end
-
-    if not mapNameIndex then buildMapIndex() end
-
-    local bestInfo, bestScore
-    for _, zoneName in ipairs(namesForInstance(instance)) do
-        local candidates = mapNameIndex[normalizeName(zoneName)]
-        if candidates then
-            for _, info in ipairs(candidates) do
-                local score = candidateScore(info, instance.parentZone)
-                if not bestInfo or score > bestScore then
-                    bestInfo, bestScore = info, score
-                end
-            end
-        end
-    end
-
-    if bestInfo then
-        return bestInfo.mapID
-    end
-
-    -- Last chance: use the old addon's map ID only when the current client's
-    -- map at that ID still has the expected zone name. This prevents accidental
-    -- placement on a reused numeric map ID.
-    if legacy and legacy.mapID then
-        local info = safeGetMapInfo(legacy.mapID)
-        if info then
-            local actual = normalizeName(info.name)
-            for _, expected in ipairs(namesForInstance(instance)) do
-                if actual == normalizeName(expected) then
-                    return legacy.mapID
-                end
-            end
-        end
-    end
-
-    return nil
-end
-
-local function applyLegacyFallback()
-    local used = 0
-
-    local function applyBucket(kind, sourceBucket, fallbackBucket)
-        if type(sourceBucket) ~= "table" then return end
-        fallbackBucket = fallbackBucket or {}
-
-        for groupName, group in pairs(sourceBucket) do
-            if type(group) == "table" then
-                for id, instance in pairs(group) do
-                    if type(instance) == "table" then
-                        local legacy = fallbackBucket[id]
-                        if legacy then
-                            instance.legacyMapID = legacy.mapID
-                            if (type(instance.x) ~= "number" or type(instance.y) ~= "number")
-                                and type(legacy.x) == "number" and type(legacy.y) == "number" then
-                                instance.x = legacy.x
-                                instance.y = legacy.y
-                                instance.coordStatus = "legacy_fallback"
-                                instance.coordSource = "supplied_base_addon"
-                                instance.coordFallbackFromLegacy = true
-                                used = used + 1
-                            end
-                        end
-                        instance._kind = kind
-                        instance._group = groupName
-                        instance._id = id
-                    end
-                end
-            end
-        end
-    end
-
-    applyBucket("Dungeon", ns.DB.Dungeons, ns.LegacyFallback and ns.LegacyFallback.Dungeons)
-    applyBucket("Raid", ns.DB.Raids, ns.LegacyFallback and ns.LegacyFallback.Raids)
-
-    ns.LegacyFallbackApplied = used
-end
-
 local function packCoord(percentX, percentY)
     local x = math.floor(percentX * 100 + 0.5)
     local y = math.floor(percentY * 100 + 0.5)
@@ -416,204 +222,52 @@ local function addNode(mapID, coord, instance)
 end
 
 
-local function hasUsablePoint(x, y)
-    return type(x) == "number" and type(y) == "number" and x > 0 and y > 0
-end
-
-local function makeMapPointMarker(instance, point, index)
-    if type(instance) ~= "table" or type(point) ~= "table" then return nil end
-    if not hasUsablePoint(point.x, point.y) then return nil end
-
-    -- Additional source points are normal instance pins, not green entrance
-    -- flags. This is required for MapUtils records such as Dire Maul's three
-    -- wing entrances and Blackrock Mountain's two zone-side map points.
-    if type(point.mapID) == "number" and type(instance.mapID) == "number"
-        and point.mapID == instance.mapID
-        and hasUsablePoint(instance.x, instance.y)
-        and math.abs(point.x - instance.x) < 0.01
-        and math.abs(point.y - instance.y) < 0.01 then
-        return nil
-    end
-
-    return {
-        name = instance.name,
-        aliases = instance.aliases,
-        contentType = canonicalKind(instance),
-        era = canonicalEra(instance),
-        zone = point.zone or instance.zone,
-        parentZone = point.parentZone or instance.parentZone,
-        location = point.location or instance.location,
-        territory = point.territory or instance.territory,
-        mapID = point.mapID,
-        x = point.x,
-        y = point.y,
-        players = instance.players,
-        maxPlayers = instance.maxPlayers,
-        levelMin = instance.levelMin,
-        levelMax = instance.levelMax,
-        bossCount = instance.bossCount,
-        origin = instance.origin,
-        availableInForever = instance.availableInForever,
-        foreverStatus = instance.foreverStatus,
-        isForeverNew = instance.isForeverNew,
-        descriptionKey = instance.descriptionKey,
-        foreverChangeKey = instance.foreverChangeKey,
-        noteKey = instance.noteKey,
-        wings = instance.wings,
-        atlas = instance.atlas,
-        coordStatus = "source_map_point",
-        coordSource = point.source or instance.coordSource,
-        _kind = instance._kind,
-        _group = instance._group,
-        _id = tostring(instance._id or instance.name or "instance") .. "_map_point_" .. tostring(index or 1),
-        isMapPointMarker = true,
-        mapPointLabel = point.label,
-        targetInstance = instance,
-    }
-end
-
-local function makeEntranceMarker(instance)
-    if type(instance) ~= "table" or type(instance.entrance) ~= "table" then
-        return nil
-    end
-
-    local entrance = instance.entrance
-    if not hasUsablePoint(entrance.x, entrance.y) then
-        return nil
-    end
-
-    -- The database contract uses 0,0 when the entrance is unknown or when it
-    -- is identical to the main instance point. Guard against accidental
-    -- duplicates here as well so two icons never stack on the same point.
-    local entranceZone = entrance.zone or instance.zone
-    if entranceZone == instance.zone
-        and hasUsablePoint(instance.x, instance.y)
-        and math.abs(entrance.x - instance.x) < 0.01
-        and math.abs(entrance.y - instance.y) < 0.01 then
-        return nil
-    end
-
-    return {
-        name = instance.name,
-        aliases = instance.aliases,
-        contentType = canonicalKind(instance),
-        era = canonicalEra(instance),
-        zone = entranceZone,
-        parentZone = entrance.parentZone or instance.parentZone,
-        location = entrance.location or instance.location,
-        territory = entrance.territory or instance.territory,
-        x = entrance.x,
-        y = entrance.y,
-        players = instance.players,
-        maxPlayers = instance.maxPlayers,
-        levelMin = instance.levelMin,
-        levelMax = instance.levelMax,
-        bossCount = instance.bossCount,
-        origin = instance.origin,
-        availableInForever = instance.availableInForever,
-        foreverStatus = instance.foreverStatus,
-        isForeverNew = instance.isForeverNew,
-        descriptionKey = instance.descriptionKey,
-        foreverChangeKey = instance.foreverChangeKey,
-        noteKey = instance.noteKey,
-        wings = instance.wings,
-        coordStatus = "entrance",
-        coordSource = entrance.source or instance.coordSource,
-        _kind = instance._kind,
-        _group = instance._group,
-        _id = tostring(instance._id or instance.name or "instance") .. "_entrance",
-        isEntranceMarker = true,
-        entranceLabelKey = entrance.labelKey,
-        entranceLabel = entrance.label,
-        targetInstance = instance,
-    }
-end
-
 local function rebuildNodes()
     wipe(nodes)
     wipe(worldNodes)
     worldNodesDirty = true
     wipe(ancestorZones)
     wipe(unresolved)
-    wipe(ancestorNameCache)
-    buildMapIndex()
 
-    local function processBucket(sourceBucket, fallbackBucket)
-        for _, group in pairs(sourceBucket or {}) do
-            for id, instance in pairs(group or {}) do
-                if type(instance) == "table" then
-                    local legacy = fallbackBucket and fallbackBucket[id] or nil
+    local entries = type(ns.DB.GetBrowserEntries) == "function" and ns.DB.GetBrowserEntries() or {}
+    for _, entry in ipairs(entries) do
+        local instance = entry.instance
+        if type(instance) == "table" then
+            instance._id = entry.id
+            instance._kind = instance.contentType
+            instance._group = entry.era
 
-                    -- Main instance point. A 0,0 point is intentionally treated
-                    -- as unknown and never rendered.
-                    if hasUsablePoint(instance.x, instance.y) then
-                        local mapID = resolveMapID(instance, legacy)
-                        if mapID then
-                            instance._mapID = mapID
-                            addNode(mapID, packCoord(instance.x, instance.y), instance)
-                            addAncestorRelation(mapID)
-                        else
-                            unresolved[id] = {
-                                reason = "map_unresolved",
-                                zone = instance.zone,
-                                name = instance.name,
-                            }
-                        end
-                    else
-                        unresolved[id] = {
-                            reason = "coordinate_missing",
-                            zone = instance.zone,
-                            name = instance.name,
-                        }
-                    end
+            local mapID, percentX, percentY
+            if type(ns.DB.GetCanonicalLocation) == "function" then
+                mapID, percentX, percentY = ns.DB.GetCanonicalLocation(instance)
+            end
 
-                    -- Some MapUtils dungeon records intentionally expose more than one
-                    -- normal world-map point. Render every additional source point instead
-                    -- of collapsing Dire Maul/Blackrock/Ruins of Lordaeron to one pin.
-                    for pointIndex, point in ipairs(instance.mapPoints or {}) do
-                        local pointMarker = makeMapPointMarker(instance, point, pointIndex)
-                        if pointMarker then
-                            local pointMapID = resolveMapID(pointMarker, nil)
-                            if pointMapID then
-                                pointMarker._mapID = pointMapID
-                                addNode(pointMapID, packCoord(pointMarker.x, pointMarker.y), pointMarker)
-                                addAncestorRelation(pointMapID)
-                            else
-                                unresolved[pointMarker._id] = {
-                                    reason = "map_point_unresolved",
-                                    zone = pointMarker.zone,
-                                    name = pointMarker.name,
-                                }
-                            end
-                        end
-                    end
-
-                    -- Entrance points are independent from the main point. The
-                    -- database stores 0,0 when the entrance is unknown or when
-                    -- it would duplicate the main instance point. Those records
-                    -- intentionally produce no green flag marker.
-                    local entranceMarker = makeEntranceMarker(instance)
-                    if entranceMarker then
-                        local entranceMapID = resolveMapID(entranceMarker, nil)
-                        if entranceMapID then
-                            entranceMarker._mapID = entranceMapID
-                            addNode(entranceMapID, packCoord(entranceMarker.x, entranceMarker.y), entranceMarker)
-                            addAncestorRelation(entranceMapID)
-                        else
-                            unresolved[entranceMarker._id] = {
-                                reason = "entrance_map_unresolved",
-                                zone = entranceMarker.zone,
-                                name = entranceMarker.name,
-                            }
-                        end
-                    end
+            if percentX and percentY then
+                -- One-source contract: the map ID and coordinates come from the same
+                -- canonical Database.lua entry used by the browser and TomTom. Never
+                -- substitute a second name-resolved location here.
+                if mapID and safeGetMapInfo(mapID) then
+                    instance._mapID = mapID
+                    addNode(mapID, packCoord(percentX, percentY), instance)
+                    addAncestorRelation(mapID)
+                else
+                    unresolved[entry.id] = {
+                        reason = "map_unresolved",
+                        zone = instance.zone,
+                        name = instance.name,
+                        mapID = mapID,
+                    }
                 end
+            else
+                unresolved[entry.id] = {
+                    reason = "coordinate_missing",
+                    zone = instance.zone,
+                    name = instance.name,
+                }
             end
         end
     end
 
-    processBucket(ns.DB.Dungeons, ns.LegacyFallback and ns.LegacyFallback.Dungeons)
-    processBucket(ns.DB.Raids, ns.LegacyFallback and ns.LegacyFallback.Raids)
     ns.Unresolved = unresolved
 end
 
@@ -726,13 +380,10 @@ end
 local function nodeIcon(node)
     local hasRaid = false
     local hasForeverDungeon = false
-    local hasEntrance = false
 
     for _, instance in ipairs(node.instances or {}) do
         if nodeVisible(instance) then
-            if instance.isEntranceMarker then
-                hasEntrance = true
-            elseif canonicalKind(instance) == "Raid" then
+            if canonicalKind(instance) == "Raid" then
                 hasRaid = true
             elseif canonicalKind(instance) == "Dungeon" and canonicalEra(instance) == "Forever" then
                 hasForeverDungeon = true
@@ -740,9 +391,7 @@ local function nodeIcon(node)
         end
     end
 
-    if hasEntrance then
-        return ICON_ENTRANCE
-    elseif hasRaid then
+    if hasRaid then
         return ICON_RAID
     elseif hasForeverDungeon then
         return ICON_FOREVER_DUNGEON
@@ -965,7 +614,7 @@ local function atlasNamesForInstance(instance)
         table.insert(result, value)
     end
 
-    local canonical = (instance.isEntranceMarker or instance.isMapPointMarker) and instance.targetInstance or instance
+    local canonical = instance
     add(canonical and canonical.name)
     for _, alias in ipairs((canonical and canonical.aliases) or {}) do add(alias) end
     for _, alias in ipairs((canonical and canonical.atlas and canonical.atlas.atlasNames) or {}) do add(alias) end
@@ -992,7 +641,7 @@ local function buildAtlasNameIndex()
 end
 
 local function findAtlasMapKey(instance)
-    local canonical = instance and ((instance.isEntranceMarker or instance.isMapPointMarker) and instance.targetInstance or instance) or nil
+    local canonical = instance
     if not canonical then return nil end
 
     local cacheKey = canonical._id or canonical.name
@@ -1055,7 +704,7 @@ end
 local function firstVisibleInstance(node)
     for _, instance in ipairs((node and node.instances) or {}) do
         if nodeVisible(instance) then
-            return (instance.isEntranceMarker or instance.isMapPointMarker) and (instance.targetInstance or instance) or instance
+            return instance
         end
     end
     return nil
@@ -1161,7 +810,6 @@ local function renderInstanceTooltip(tooltip, instance)
         provenanceLabel(instance),
         canonicalKind(instance) == "Raid" and L("RAID") or L("DUNGEON"),
     }
-    if instance.isEntranceMarker then table.insert(meta, L("ENTRANCE_MARKER")) end
     local levels = levelText(instance)
     if levels then table.insert(meta, L("LEVEL_SHORT") .. " " .. levels) end
     local players = playerText(instance)
@@ -1185,28 +833,9 @@ local function renderInstanceTooltip(tooltip, instance)
 
     if db.showCoordinates and type(instance.x) == "number" and type(instance.y) == "number" then
         local coords = string.format("%.1f, %.1f", instance.x, instance.y)
-        if instance.coordFallbackFromLegacy then
-            coords = coords .. L("LEGACY_FALLBACK")
-        end
-        local coordLabel = instance.isEntranceMarker and L("ENTRANCE_LABEL") or L("INSTANCE_POINT_LABEL")
-        addTooltipDetail(tooltip, coordLabel, coords)
-
-        if instance.isEntranceMarker and type(instance.targetInstance) == "table"
-            and type(instance.targetInstance.x) == "number" and type(instance.targetInstance.y) == "number" then
-            addTooltipDetail(tooltip, L("INSTANCE_POINT_LABEL"), string.format("%.1f, %.1f", instance.targetInstance.x, instance.targetInstance.y))
-        end
+        addTooltipDetail(tooltip, L("INSTANCE_POINT_LABEL"), coords)
     end
 
-    if instance.isEntranceMarker then
-        local accessLabel = instance.entranceLabelKey and optionalL(instance.entranceLabelKey) or instance.entranceLabel
-        if type(accessLabel) == "string" and accessLabel ~= "" then
-            addTooltipDetail(tooltip, L("ACCESS_LABEL"), accessLabel)
-        end
-    end
-
-    if instance.isMapPointMarker and type(instance.mapPointLabel) == "string" and instance.mapPointLabel ~= "" then
-        addTooltipDetail(tooltip, L("MAP_POINT_LABEL"), instance.mapPointLabel)
-    end
 
     if db.showDescriptions then
         local description = localizedDescription(instance)
@@ -1411,6 +1040,9 @@ local function makeOptions()
                 set = function(_, value)
                     db.language = value
                     notifyUpdate()
+                    if ns.InstanceBrowser and type(ns.InstanceBrowser.RefreshList) == "function" then
+                        ns.InstanceBrowser:RefreshList()
+                    end
                 end,
             },
             zoneScale = {
@@ -1484,7 +1116,6 @@ local function initialize()
     if initialized then return end
     initialized = true
 
-    applyLegacyFallback()
     rebuildNodes()
 
     local aceDB = AceDB:New("ForeverInstancesDB", defaults, true)
