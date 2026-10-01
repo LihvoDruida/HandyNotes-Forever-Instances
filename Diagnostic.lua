@@ -727,7 +727,7 @@ function Runner:PrepareBrowserTest()
             string.format("size=%.0fx%.0f anchors=%d", width or 0, height or 0, points or 0)
     end)
 
-    self:Test("Native Blizzard panel / scroll surface", function()
+    self:Test("Quest-style panel / scroll surface", function()
         local scroll = _G.ForeverInstancesMapBrowserScrollFrame
         local p = _G.ForeverInstancesMapBrowserPanel
         local outer = _G.ForeverInstancesMapBrowserOuter
@@ -743,27 +743,48 @@ function Runner:PrepareBrowserTest()
         local geometryOK = sw and sw > 0 and sh and sh > 0 and pw and pw > 0 and ph and ph > 0
         if rw and rw > 1 then geometryOK = geometryOK and math.abs(pw - rw) <= 2 end
         if rh and rh > 30 then geometryOK = geometryOK and math.abs(ph - (rh - 29)) <= 2 end
-        geometryOK = geometryOK and math.abs(sw - pw) <= 2 and math.abs(sh - ph) <= 2
-        return geometryOK and scroll:GetParent() == p and bar ~= nil and state.nativeScrollTemplate == true,
-            string.format("panel=%.0fx%.0f scroll=%.0fx%.0f questFrame=%.0fx%.0f scrollbar=%s native=%s",
-                pw or 0, ph or 0, sw or 0, sh or 0, rw or 0, rh or 0, tostring(bar ~= nil), tostring(state.nativeScrollTemplate))
+        geometryOK = geometryOK and math.abs(sw - (pw - 8)) <= 2 and math.abs(sh - (ph - 8)) <= 2
+        return geometryOK and scroll:GetParent() == p and bar ~= nil and state.manualQuestScroll == true,
+            string.format("panel=%.0fx%.0f scroll=%.0fx%.0f questFrame=%.0fx%.0f scrollbar=%s manual=%s",
+                pw or 0, ph or 0, sw or 0, sh or 0, rw or 0, rh or 0, tostring(bar ~= nil), tostring(state.manualQuestScroll))
     end)
 
-    self:Test("Native detached side-tab and collision guard", function()
+    self:Test("Quest-style detached side-tab chain", function()
         local state = type(browser.GetDebugState) == "function" and browser:GetDebugState() or {}
-        return state.nativeTabTemplate == true and (state.tabCollisions or 0) == 0,
-            string.format("native=%s detected=%s collisions=%s", tostring(state.nativeTabTemplate), tostring(state.sideTabsDetected), tostring(state.tabCollisions))
+        local layout = type(browser.GetTabLayoutDebug) == "function" and browser:GetTabLayoutDebug() or {}
+        local names = {}
+        if type(layout.candidates) == "table" then
+            for _, info in ipairs(layout.candidates) do names[#names + 1] = tostring(info.name or "anonymous") end
+        end
+        local anchorOK = state.tabAnchorMode == "managed-chain"
+            or state.tabAnchorMode == "passive-side-tab"
+            or state.tabAnchorMode == "fallback-quest-tab"
+            or state.tabAnchorMode == "stock-maplegend"
+        return state.questStyleTab == true
+            and state.usesBlizzardDungeonAtlas == true
+            and state.tabDisplayMode == nil
+            and anchorOK
+            and (state.tabCollisions or 0) == 0,
+            string.format("questStyle=%s atlas=%s ownDisplayMode=%s anchor=%s:%s managed=%s questStylePeers=%s passive=%s handoffHooks=%s collisions=%s tabs=%s",
+                tostring(state.questStyleTab), tostring(state.usesBlizzardDungeonAtlas), tostring(state.tabDisplayMode),
+                tostring(state.tabAnchorMode), tostring(state.tabAnchorName), tostring(state.sideTabsDetected),
+                tostring(state.questStyleSideTabsDetected), tostring(state.passiveSideTabsDetected),
+                tostring(state.externalTabHandoffHooks), tostring(state.tabCollisions),
+                #names > 0 and table.concat(names, ",") or "none")
+    end)
+
+    self:Test("External side-tab handoff coverage", function()
+        local state = type(browser.GetDebugState) == "function" and browser:GetDebugState() or {}
+        local peers = tonumber(state.questStyleSideTabsDetected) or 0
+        local hooks = tonumber(state.externalTabHandoffHooks) or 0
+        return hooks >= peers, string.format("peers=%d passive=%s hooks=%d", peers, tostring(state.passiveSideTabsDetected), hooks)
     end)
 
     self:Test("Simulated addon side-tab click", function()
-        if type(tab.customMouseUpHandler) == "function" then
-            tab.customMouseUpHandler(tab, "LeftButton", true)
-            return true, "native customMouseUpHandler invoked"
-        end
         local handler = tab.GetScript and tab:GetScript("OnMouseUp")
         if type(handler) ~= "function" then return false, "OnMouseUp handler unavailable" end
-        handler(tab, "LeftButton", true)
-        return true, "fallback OnMouseUp invoked"
+        handler(tab, "LeftButton")
+        return true, "addon OnMouseUp invoked"
     end)
 
     self:Later(0.10, function() self:InspectBrowserOpen(search) end)
@@ -820,9 +841,50 @@ function Runner:InspectBrowserReopen(search)
         local shown = browser and type(browser.IsShown) == "function" and browser:IsShown()
         return shown == true, "shown=" .. tostring(shown)
     end)
-    search:SetText("Deadmines")
-    if browser and type(browser.RefreshList) == "function" then browser:RefreshList() end
-    self:Later(0.08, function() self:InspectSearchResult(search) end)
+
+    -- Close the whole World Map while our tab is selected, then open it again.
+    -- The addon must NOT override Blizzard's normal map-open lifecycle. The
+    -- browser selection is cleared on close and the previously active native
+    -- display mode is restored before the map is shown again.
+    if _G.WorldMapFrame and type(_G.WorldMapFrame.Show) == "function" and type(_G.WorldMapFrame.Hide) == "function" then
+        pcall(_G.WorldMapFrame.Show, _G.WorldMapFrame)
+        self:Later(0.05, function()
+            pcall(_G.WorldMapFrame.Hide, _G.WorldMapFrame)
+            self:Later(0.05, function()
+                pcall(_G.WorldMapFrame.Show, _G.WorldMapFrame)
+                self:Later(0.18, function() self:InspectWorldMapReopen(search) end)
+            end)
+        end)
+    else
+        self:Skip("Blizzard default map reopen lifecycle", "WorldMapFrame Show/Hide unavailable")
+        search:SetText("Deadmines")
+        if browser and type(browser.RefreshList) == "function" then browser:RefreshList() end
+        self:Later(0.08, function() self:InspectSearchResult(search) end)
+    end
+end
+
+function Runner:InspectWorldMapReopen(search)
+    local browser = ns.InstanceBrowser
+    self:Test("Blizzard default map reopen lifecycle", function()
+        local state = type(browser.GetDebugState) == "function" and browser:GetDebugState() or {}
+        local nativeVisible = state.nativeQuestsShown == true
+            or state.nativeEventsShown == true
+            or state.nativeLegendShown == true
+        local ok = state.shown ~= true and state.tabSelected ~= true
+            and state.displayMode ~= nil and nativeVisible
+        return ok, string.format("browser=%s selected=%s quests=%s events=%s legend=%s displayMode=%s",
+            tostring(state.shown), tostring(state.tabSelected), tostring(state.nativeQuestsShown),
+            tostring(state.nativeEventsShown), tostring(state.nativeLegendShown), tostring(state.displayMode))
+    end)
+
+    -- Continue the browser-specific tests only after an explicit user-style
+    -- selection. Reopening the World Map itself must never select our tab.
+    if browser and type(browser.Show) == "function" then browser:Show() end
+    self:Later(0.06, function()
+        search:SetText("Deadmines")
+        if browser and type(browser.RefreshList) == "function" then browser:RefreshList() end
+        self:Later(0.08, function() self:InspectSearchResult(search) end)
+    end)
 end
 
 function Runner:InspectSearchResult(search)

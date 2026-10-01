@@ -1,4 +1,4 @@
--- Forever Instances - native Blizzard-styled, taint-safe instance browser for WoW Forever
+-- Forever Instances - Blizzard-quest-style, taint-safe instance browser for WoW Forever
 local addonName, ns = ...
 
 local Database = ns.DB
@@ -19,9 +19,9 @@ local DEFAULT_PANEL_WIDTH = 308
 
 local panel
 local tabFrame
+local backTab
 local initialized = false
 local selectedIsOurs = false
-local lastSelectedWasOurs = false
 local restoringBlizzardDisplayMode = false
 local prevBlizzardDisplayMode
 local activePinTarget
@@ -29,8 +29,10 @@ local activeTomTomWaypoint
 local searchText = ""
 local rowPool, headerPool = {}, {}
 local rowCursor, headerCursor = 1, 1
-local foreignTabHooks = setmetatable({}, { __mode = "k" })
+local externalTabHooks = setmetatable({}, { __mode = "k" })
+local externalPassiveGlowState = setmetatable({}, { __mode = "k" })
 local systemModeHooks = setmetatable({}, { __mode = "k" })
+local worldMapTabsHookedLibrary = nil
 
 local function L(key, ...)
     if type(ns.L) == "function" then return ns.L(key, ...) end
@@ -207,12 +209,12 @@ function Browser:NavigateTo(instance)
 end
 
 local function SetTypeIconAppearance(row, instance)
-    local root = "Interface\\AddOns\\" .. addonName .. "\\"
-    local isRaid = instance.contentType == "Raid"
-    if isRaid then row.typeIcon:SetTexture(root .. "raid.tga")
-    elseif instance.era == "Forever" then row.typeIcon:SetTexture(root .. "forever_dungeon.tga")
-    else row.typeIcon:SetTexture(root .. "dungeon.tga") end
-    row.typeIcon:SetTexCoord(0, 1, 0, 1)
+    local atlas = instance.contentType == "Raid" and "Raid" or "Dungeon"
+    if not SafeAtlas(row.typeIcon, atlas, false) then
+        local root = "Interface\\AddOns\\" .. addonName .. "\\"
+        row.typeIcon:SetTexture(root .. (instance.contentType == "Raid" and "raid.tga" or "dungeon.tga"))
+        row.typeIcon:SetTexCoord(0, 1, 0, 1)
+    end
 end
 
 local function ApplyRowSelectionVisual(row, selected)
@@ -453,7 +455,7 @@ function Browser:RefreshList()
 
     local child = panel.scrollChild
     local width = math.max(250, panel.scrollFrame:GetWidth() or DEFAULT_PANEL_WIDTH)
-    child:SetWidth(math.max(1, width - 4))
+    child:SetWidth(width)
     local y, visibleCount = -2, 0
     local state = GetState()
     local searching = searchText ~= ""
@@ -511,105 +513,248 @@ function Browser:RefreshList()
     if panel.SyncScrollBar then panel.SyncScrollBar() end
 end
 
-local function SetTabSelected(tab, selected)
-    if not tab then return end
-    if tab.SelectedTexture and tab.SelectedTexture.SetShown then
-        tab.SelectedTexture:SetShown(selected == true)
+local function FindAtlasTexture(frame, atlas)
+    if not frame or not frame.GetRegions then return nil end
+    for i = 1, frame:GetNumRegions() do
+        local region = select(i, frame:GetRegions())
+        if region and region.GetAtlas and region.GetObjectType and region:GetObjectType() == "Texture"
+           and region:GetAtlas() == atlas then
+            return region
+        end
     end
-    if tab.TabGlow and tab.TabGlow.SetAlpha then
-        tab.TabGlow:SetAlpha(selected and 0.55 or 0)
+    return nil
+end
+
+local function IsQuestStyleSideTab(child, qmf)
+    if not child or child == tabFrame or child == backTab then return false end
+    if child.GetParent and child:GetParent() ~= qmf then return false end
+    if not child.IsShown or not child:IsShown() then return false end
+    if not FindAtlasTexture(child, "QuestLog-tab-side") then return false end
+    return true
+end
+
+local function GetVisibleQuestStyleSideTabs(qmf)
+    local tabs = {}
+    if not qmf or not qmf.GetChildren then return tabs end
+    for _, child in ipairs({ qmf:GetChildren() }) do
+        if IsQuestStyleSideTab(child, qmf) then tabs[#tabs + 1] = child end
     end
-    if tab._fiIcon then
-        SetVertexColor(tab._fiIcon, selected and TAB_ICON_GOLD or TAB_ICON_DIM)
-    end
+    return tabs
 end
 
 local function RefreshSelectGlows()
-    SetTabSelected(tabFrame, selectedIsOurs)
+    local qmf = _G.QuestMapFrame
+    if not qmf then return end
+    local function setGlow(tab, shown)
+        if not tab then return end
+        local glow = tab._fiSelectGlow or FindAtlasTexture(tab, "QuestLog-Tab-side-Glow-Select")
+        if glow then
+            tab._fiSelectGlow = glow
+            glow:SetShown(shown)
+        end
+    end
+
+    -- Native Blizzard tabs are updated by QuestMapFrame:SetDisplayMode. While our
+    -- detached surface is selected, hide their checked glow so only one tab looks
+    -- active. The native state is restored through SetDisplayMode when we leave.
+    if selectedIsOurs then
+        setGlow(qmf.QuestsTab, false)
+        setGlow(qmf.MapLegendTab, false)
+        setGlow(qmf.EventsTab, false)
+        setGlow(tabFrame, true)
+    else
+        setGlow(tabFrame, false)
+    end
+
+    -- WoW Forever addons can provide a fallback Quests side-tab with no
+    -- displayMode (EasyFind is one example). Such a tab otherwise keeps its
+    -- selected glow while our browser is active, producing two yellow tabs.
+    -- Detect this generically from Blizzard side-tab chrome, remember the
+    -- original glow state, hide it only for our active period, and restore it
+    -- untouched when our browser closes. No addon names are referenced.
+    for _, other in ipairs(GetVisibleQuestStyleSideTabs(qmf)) do
+        if other.displayMode == nil then
+            local glow = FindAtlasTexture(other, "QuestLog-Tab-side-Glow-Select")
+            if glow then
+                if selectedIsOurs then
+                    if externalPassiveGlowState[other] == nil then
+                        externalPassiveGlowState[other] = glow:IsShown() and true or false
+                    end
+                    glow:Hide()
+                elseif externalPassiveGlowState[other] ~= nil then
+                    glow:SetShown(externalPassiveGlowState[other])
+                    externalPassiveGlowState[other] = nil
+                end
+            end
+        end
+    end
+
+    if backTab then
+        setGlow(backTab, not selectedIsOurs)
+        SetVertexColor(backTab._fiIcon, selectedIsOurs and TAB_ICON_DIM or TAB_ICON_GOLD)
+    end
+    SetVertexColor(tabFrame and tabFrame._fiIcon, selectedIsOurs and TAB_ICON_GOLD or TAB_ICON_DIM)
 end
 
+-- Deliberately mirrors the visible construction used by the working map-search
+-- tab: a plain sibling frame using Blizzard's quest-log side-tab atlases.  We
+-- intentionally do NOT assign displayMode to our tab.  Third-party tab managers
+-- using the same display-mode convention therefore never try to re-anchor themselves below us,
+-- which prevents mutual anchor loops; we always place ourselves after their
+-- settled visible tab chain instead.
 local function CreateSideTab(qmf)
     if tabFrame or not qmf then return end
     local ref = qmf.MapLegendTab or qmf.EventsTab or qmf.QuestsTab
     if not ref then return end
-
-    local ok, tab = pcall(CreateFrame, "Frame", "ForeverInstancesMapBrowserTab", qmf, "LargeSideTabButtonTemplate")
-    if not ok or not tab then
-        tab = CreateFrame("Frame", "ForeverInstancesMapBrowserTab", qmf)
-        tab:SetSize(TAB_W, TAB_H)
-        tab:EnableMouse(true)
-        tab._fiNativeTemplate = false
-
-        local bg = tab:CreateTexture(nil, "BACKGROUND")
-        SafeAtlas(bg, "common-sidetab", true)
-        bg:SetPoint("CENTER")
-
-        local selected = tab:CreateTexture(nil, "OVERLAY")
-        SafeAtlas(selected, "common-sidetab-selected", true)
-        selected:SetPoint("CENTER")
-        selected:Hide()
-        tab.SelectedTexture = selected
-
-        local hover = tab:CreateTexture(nil, "HIGHLIGHT")
-        SafeAtlas(hover, "common-sidetab-hover", true)
-        hover:SetPoint("CENTER")
-    else
-        tab._fiNativeTemplate = true
-    end
-
     local w, h = ref:GetSize()
-    if w and w > 0 and h and h > 0 then tab:SetSize(w, h) end
-    tab:SetFrameLevel(ref:GetFrameLevel())
-    tab.tooltipText = L("BROWSER_TITLE")
+    if not w or w == 0 then w, h = TAB_W, TAB_H end
 
-    local icon = tab.Icon
-    if not icon then
-        icon = tab:CreateTexture(nil, "ARTWORK")
-        icon:SetPoint("CENTER")
+    local tab = CreateFrame("Frame", "ForeverInstancesMapBrowserTab", qmf)
+    tab:SetSize(w, h)
+    tab:SetFrameStrata("HIGH")
+    tab:SetFrameLevel(ref:GetFrameLevel())
+    tab:EnableMouse(true)
+    tab._fiQuestStyleTab = true
+
+    local bg = tab:CreateTexture(nil, "BACKGROUND")
+    SafeAtlas(bg, "QuestLog-tab-side", true)
+    bg:SetPoint("CENTER", tab, "CENTER", 0, 0)
+    tab._fiBackground = bg
+
+    local icon = tab:CreateTexture(nil, "ARTWORK")
+    if not SafeAtlas(icon, "Dungeon", false) then
+        icon:SetTexture("Interface\\AddOns\\" .. addonName .. "\\dungeon.tga")
+        icon:SetTexCoord(0, 1, 0, 1)
     end
-    icon:SetTexture("Interface\\AddOns\\" .. addonName .. "\\dungeon.tga")
-    icon:SetTexCoord(0, 1, 0, 1)
-    icon:SetSize(TAB_ICON_SIZE + 3, TAB_ICON_SIZE + 3)
+    icon:SetSize(TAB_ICON_SIZE, TAB_ICON_SIZE)
+    icon:SetPoint("CENTER", tab, "CENTER", 0, 0)
     SetVertexColor(icon, TAB_ICON_DIM)
     tab._fiIcon = icon
+    tab._fiUsesBlizzardDungeonAtlas = icon.GetAtlas and icon:GetAtlas() == "Dungeon" or false
 
-    local function Activate(_, button, upInside)
-        if button == "LeftButton" and upInside ~= false then Browser:Show() end
-    end
-    if tab._fiNativeTemplate then
-        tab.customMouseUpHandler = Activate
-    else
-        tab:SetScript("OnMouseUp", Activate)
-        tab:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-            GameTooltip:SetText(L("BROWSER_TITLE"))
-            GameTooltip:AddLine(L("BROWSER_TAB_DESC"), 1, 1, 1, true)
-            GameTooltip:Show()
-        end)
-        tab:SetScript("OnLeave", GameTooltip_Hide)
-    end
+    local selectGlow = tab:CreateTexture(nil, "OVERLAY")
+    SafeAtlas(selectGlow, "QuestLog-Tab-side-Glow-Select", true)
+    selectGlow:SetPoint("CENTER", bg, "CENTER", 0, 0)
+    selectGlow:Hide()
+    tab._fiSelectGlow = selectGlow
+
+    local hoverGlow = tab:CreateTexture(nil, "HIGHLIGHT")
+    SafeAtlas(hoverGlow, "QuestLog-Tab-side-Glow-hover", true)
+    hoverGlow:SetPoint("CENTER", bg, "CENTER", 0, 0)
+
+    tab:SetScript("OnMouseDown", function(self, button)
+        if button == "LeftButton" and self._fiIcon then self._fiIcon:SetPoint("CENTER", -1, -1) end
+    end)
+    tab:SetScript("OnMouseUp", function(self, button)
+        if button == "LeftButton" then
+            if self._fiIcon then self._fiIcon:SetPoint("CENTER", 0, 0) end
+            if SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_TAB and PlaySound then
+                pcall(PlaySound, SOUNDKIT.IG_CHARACTER_INFO_TAB)
+            end
+            Browser:Show()
+        end
+    end)
+    tab:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:SetText(L("BROWSER_TITLE"))
+        GameTooltip:AddLine(L("BROWSER_TAB_DESC"), 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    tab:SetScript("OnLeave", GameTooltip_Hide)
 
     tabFrame = tab
-    SetTabSelected(tabFrame, false)
 end
 
+local function CreateBackTab(qmf)
+    local tab = CreateFrame("Frame", "ForeverInstancesMapQuestsTab", qmf)
+    local refW, refH = qmf.QuestsTab:GetSize()
+    if not refW or refW == 0 then refW, refH = TAB_W, TAB_H end
+    tab:SetSize(refW, refH)
+    tab:SetFrameStrata("HIGH")
+    tab:SetFrameLevel(qmf.QuestsTab:GetFrameLevel())
+    tab:EnableMouse(true)
+    tab._fiQuestStyleTab = true
+
+    local bg = tab:CreateTexture(nil, "BACKGROUND")
+    SafeAtlas(bg, "QuestLog-tab-side", true)
+    bg:SetPoint("CENTER", tab, "CENTER", 0, 0)
+
+    local icon = tab:CreateTexture(nil, "ARTWORK")
+    local copied = false
+    local src = qmf.QuestsTab.Icon
+    if not src then
+        for i = 1, qmf.QuestsTab:GetNumRegions() do
+            local region = select(i, qmf.QuestsTab:GetRegions())
+            if region and region.GetObjectType and region:GetObjectType() == "Texture" then
+                local atlas = region.GetAtlas and region:GetAtlas()
+                local low = atlas and atlas:lower() or ""
+                if atlas and not low:find("tab", 1, true) and not low:find("glow", 1, true) then
+                    src = region
+                    break
+                end
+            end
+        end
+    end
+    if src then
+        local atlas = src.GetAtlas and src:GetAtlas()
+        if atlas then SafeAtlas(icon, atlas, false); copied = true
+        elseif src.GetTexture and src:GetTexture() then
+            icon:SetTexture(src:GetTexture())
+            if src.GetTexCoord then icon:SetTexCoord(src:GetTexCoord()) end
+            copied = true
+        end
+    end
+    if not copied then icon:SetTexture("Interface\\QuestFrame\\UI-QuestLog-BookIcon") end
+    icon:SetSize(TAB_ICON_SIZE + 4, TAB_ICON_SIZE + 4)
+    icon:SetPoint("CENTER", tab, "CENTER", 0, 0)
+    SetVertexColor(icon, TAB_ICON_GOLD)
+    tab._fiIcon = icon
+
+    local selectGlow = tab:CreateTexture(nil, "OVERLAY")
+    SafeAtlas(selectGlow, "QuestLog-Tab-side-Glow-Select", true)
+    selectGlow:SetPoint("CENTER", bg, "CENTER", 0, 0)
+    selectGlow:Show()
+    tab._fiSelectGlow = selectGlow
+
+    local hoverGlow = tab:CreateTexture(nil, "HIGHLIGHT")
+    SafeAtlas(hoverGlow, "QuestLog-Tab-side-Glow-hover", true)
+    hoverGlow:SetPoint("CENTER", bg, "CENTER", 0, 0)
+
+    tab:SetScript("OnMouseUp", function(_, button)
+        if button == "LeftButton" then
+            if SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_TAB and PlaySound then
+                pcall(PlaySound, SOUNDKIT.IG_CHARACTER_INFO_TAB)
+            end
+            Browser:Hide(true)
+            RefreshSelectGlows()
+        end
+    end)
+    tab:SetScript("OnEnter", function(self)
+        GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+        GameTooltip:SetText(_G.QUESTLOG_BUTTON or _G.QUESTS_LABEL or "Quests")
+        GameTooltip:Show()
+    end)
+    tab:SetScript("OnLeave", GameTooltip_Hide)
+    return tab
+end
+
+-- The content surface follows the proven quest-log map-search geometry exactly:
+-- sibling outer frame on ContentsAnchor, 29px search header, -22 right inset,
+-- Blizzard paper/border, plain ScrollFrame plus MinimalScrollBar.
 local function CreatePanel(qmf)
     if panel or not qmf then return end
-    local anchor = qmf.QuestsFrame or qmf.ContentsAnchor or qmf
-    local usingContentsAnchor = anchor == qmf.ContentsAnchor
+    local anchor = qmf.ContentsAnchor or qmf.QuestsFrame or qmf
 
     local outer = CreateFrame("Frame", "ForeverInstancesMapBrowserOuter", qmf)
     outer:SetAllPoints(anchor)
-    outer:SetFrameLevel((anchor.GetFrameLevel and anchor:GetFrameLevel() or qmf:GetFrameLevel()) + 12)
-    outer:EnableMouse(true)
-    outer:Hide()
+    outer:EnableMouse(false)
 
     local p = CreateFrame("Frame", "ForeverInstancesMapBrowserPanel", outer)
-    p:SetPoint("TOPLEFT", outer, "TOPLEFT", 0, -QUEST_HEADER_HEIGHT)
-    p:SetPoint("BOTTOMRIGHT", outer, "BOTTOMRIGHT", usingContentsAnchor and -22 or 0, 0)
-    p:SetFrameLevel(outer:GetFrameLevel() + 1)
+    p:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, -QUEST_HEADER_HEIGHT)
+    p:SetPoint("BOTTOMRIGHT", anchor, "BOTTOMRIGHT", -22, 0)
     p:EnableMouse(true)
     p.outer = outer
+    outer:Hide()
 
     local paper = p:CreateTexture(nil, "BACKGROUND", nil, -1)
     if not SafeAtlas(paper, "QuestLog-main-background", true) then paper:SetTexture("Interface\\QuestFrame\\QuestBG") end
@@ -624,7 +769,6 @@ local function CreatePanel(qmf)
     end
 
     local searchBox = CreateFrame("EditBox", "ForeverInstancesMapBrowserSearchBox", outer, "SearchBoxTemplate")
-    searchBox:SetFrameLevel(outer:GetFrameLevel() + 2)
     searchBox:ClearAllPoints()
     searchBox:SetHeight(20)
     searchBox:SetPoint("TOPLEFT", outer, "TOPLEFT", 6, -2)
@@ -646,54 +790,59 @@ local function CreatePanel(qmf)
     end
     p.MeasureBlizzardSearch = p.AlignToBlizzardSearch
 
-    local function SearchChanged(self)
+    searchBox:SetScript("OnTextChanged", function(self)
         if SearchBoxTemplate_OnTextChanged then pcall(SearchBoxTemplate_OnTextChanged, self) end
         searchText = tostring(self:GetText() or "")
         Browser:RefreshList()
-    end
-    searchBox:SetScript("OnTextChanged", SearchChanged)
+    end)
 
-    local okScroll, scrollFrame = pcall(CreateFrame, "ScrollFrame", "ForeverInstancesMapBrowserScrollFrame", p, "ScrollFrameTemplate")
-    if not okScroll or not scrollFrame then
-        scrollFrame = CreateFrame("ScrollFrame", "ForeverInstancesMapBrowserScrollFrame", p)
-        scrollFrame._fiNativeTemplate = false
-    else
-        scrollFrame._fiNativeTemplate = true
-    end
-    scrollFrame:SetPoint("TOPLEFT", p, "TOPLEFT", 0, 0)
-    scrollFrame:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", 0, 0)
+    local scrollFrame = CreateFrame("ScrollFrame", "ForeverInstancesMapBrowserScrollFrame", p)
+    scrollFrame:SetPoint("TOPLEFT", p, "TOPLEFT", 4, -4)
+    scrollFrame:SetPoint("BOTTOMRIGHT", p, "BOTTOMRIGHT", -4, 4)
     scrollFrame:EnableMouseWheel(true)
     p.scrollFrame = scrollFrame
 
     local scrollChild = CreateFrame("Frame", nil, scrollFrame)
     scrollChild:SetSize(1, 1)
     scrollFrame:SetScrollChild(scrollChild)
-    scrollFrame:HookScript("OnSizeChanged", function(_, w)
-        scrollChild:SetWidth(math.max(1, (w or 1) - 4))
+    scrollFrame:HookScript("OnSizeChanged", function(_, w) scrollChild:SetWidth(w) end)
+    scrollChild:SetWidth(scrollFrame:GetWidth())
+    scrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        local maxScroll = math.max(0, (scrollChild:GetHeight() or 0) - (self:GetHeight() or 0))
+        local target = (self:GetVerticalScroll() or 0) - delta * 24
+        if target < 0 then target = 0 end
+        if target > maxScroll then target = maxScroll end
+        self:SetVerticalScroll(target)
     end)
-    scrollChild:SetWidth(math.max(1, (scrollFrame:GetWidth() or 1) - 4))
     p.scrollChild = scrollChild
 
-    local scrollBar = scrollFrame.ScrollBar
-    if scrollBar then
-        scrollBar:ClearAllPoints()
-        scrollBar:SetPoint("TOPLEFT", scrollFrame, "TOPRIGHT", 8, 2)
-        scrollBar:SetPoint("BOTTOMLEFT", scrollFrame, "BOTTOMRIGHT", 8, -4)
+    local okBar, scrollBar = pcall(CreateFrame, "EventFrame", nil, p, "MinimalScrollBar")
+    if okBar and scrollBar then
+        scrollBar:SetFrameStrata("HIGH")
+        scrollBar:SetPoint("TOPLEFT", p, "TOPRIGHT", 8, 2)
+        scrollBar:SetPoint("BOTTOMLEFT", p, "BOTTOMRIGHT", 8, -4)
         p.scrollBar = scrollBar
-    end
 
-    if not scrollFrame:GetScript("OnMouseWheel") then
-        scrollFrame:SetScript("OnMouseWheel", function(self, delta)
-            local maxScroll = math.max(0, (scrollChild:GetHeight() or 0) - (self:GetHeight() or 0))
-            local target = (self:GetVerticalScroll() or 0) - delta * 24
-            if target < 0 then target = 0 elseif target > maxScroll then target = maxScroll end
-            self:SetVerticalScroll(target)
-            if p.scrollBar and p.scrollBar.Update then p.scrollBar:Update() end
-        end)
-    end
-
-    p.SyncScrollBar = function()
-        if p.scrollBar and p.scrollBar.Update then pcall(p.scrollBar.Update, p.scrollBar) end
+        local function SyncScrollBar()
+            local contentH, viewH = scrollChild:GetHeight() or 0, scrollFrame:GetHeight() or 0
+            if scrollBar.SetVisibleExtentPercentage then
+                scrollBar:SetVisibleExtentPercentage(contentH > 0 and math.min(1, viewH / contentH) or 1)
+            end
+            if scrollBar.SetScrollPercentage then
+                local maxScroll = math.max(1, contentH - viewH)
+                scrollBar:SetScrollPercentage((scrollFrame:GetVerticalScroll() or 0) / maxScroll)
+            end
+        end
+        if scrollBar.RegisterCallback and scrollBar.Event and scrollBar.Event.OnScroll then
+            scrollBar:RegisterCallback(scrollBar.Event.OnScroll, function(_, pct)
+                local maxScroll = math.max(0, (scrollChild:GetHeight() or 0) - (scrollFrame:GetHeight() or 0))
+                scrollFrame:SetVerticalScroll(pct * maxScroll)
+            end, p)
+        end
+        scrollFrame:HookScript("OnSizeChanged", SyncScrollBar)
+        scrollFrame:HookScript("OnVerticalScroll", SyncScrollBar)
+        if hooksecurefunc then hooksecurefunc(scrollChild, "SetHeight", SyncScrollBar) end
+        p.SyncScrollBar = SyncScrollBar
     end
 
     local emptyMsg = p:CreateFontString(nil, "OVERLAY", "SystemFont_Med3")
@@ -713,116 +862,214 @@ function Browser:SyncPanelGeometry()
     if panel.AlignToBlizzardSearch then panel.AlignToBlizzardSearch() end
     if panel.scrollFrame and panel.scrollChild then
         local w = panel.scrollFrame:GetWidth() or 0
-        if w > 0 then panel.scrollChild:SetWidth(math.max(1, w - 4)) end
+        if w > 0 then panel.scrollChild:SetWidth(w) end
     end
     if panel.SyncScrollBar then panel.SyncScrollBar() end
     return true
 end
 
-local function IsLikelySideTab(frame, qmf)
-    if not frame or frame == tabFrame or frame == panel or frame == (panel and panel.outer) then return false end
-    if not frame.IsShown or not frame:IsShown() then return false end
-    local w, h = frame:GetSize()
-    if not w or not h or w < 34 or w > 72 or h < 44 or h > 72 then return false end
-    local qRight = qmf:GetRight()
-    local left, right = frame:GetLeft(), frame:GetRight()
-    if not qRight or not left or not right then return false end
-    if right < qRight - 8 or left > qRight + 90 then return false end
-    local top, bottom = frame:GetTop(), frame:GetBottom()
-    local qTop, qBottom = qmf:GetTop(), qmf:GetBottom()
-    if not top or not bottom or not qTop or not qBottom then return false end
-    return top <= qTop + 16 and bottom >= qBottom - 16
+local function IsVisibleManagedSideTab(child, qmf)
+    if not IsQuestStyleSideTab(child, qmf) then return false end
+    if child.displayMode == nil then return false end
+    local hasEnter = child.OnEnter ~= nil or (child.GetScript and child:GetScript("OnEnter") ~= nil)
+    return hasEnter == true
 end
 
-local function CollectSideTabs(qmf)
-    local tabs, seen = {}, {}
-    local function scan(parent)
-        if not parent or not parent.GetChildren then return end
-        for _, child in ipairs({ parent:GetChildren() }) do
-            if not seen[child] and IsLikelySideTab(child, qmf) then
-                seen[child] = true
-                tabs[#tabs + 1] = child
-            end
-        end
+local function GetVisibleManagedSideTabs(qmf)
+    local tabs = {}
+    if not qmf or not qmf.GetChildren then return tabs end
+    for _, child in ipairs({ qmf:GetChildren() }) do
+        if IsVisibleManagedSideTab(child, qmf) then tabs[#tabs + 1] = child end
     end
-    scan(qmf)
-    scan(_G.WorldMapFrame)
-    table.sort(tabs, function(a, b)
-        return (a:GetTop() or 0) > (b:GetTop() or 0)
-    end)
     return tabs
 end
 
-local function HookForeignTab(tab)
-    if not tab or tab == tabFrame or foreignTabHooks[tab] then return end
-    foreignTabHooks[tab] = true
-    if tab.HookScript then
-        pcall(tab.HookScript, tab, "OnMouseUp", function(_, button)
-            if button == "LeftButton" and selectedIsOurs then Browser:Hide(false) end
-        end)
-        pcall(tab.HookScript, tab, "OnShow", function() Browser:ScheduleLayout() end)
-        pcall(tab.HookScript, tab, "OnHide", function() Browser:ScheduleLayout() end)
+local function HookExternalTab(tab)
+    if not tab or tab == tabFrame or tab == backTab or externalTabHooks[tab] or not tab.HookScript then return end
+    externalTabHooks[tab] = true
+
+    -- Handoff on mouse-down, before the destination tab's own mouse-up logic.
+    -- This is important on WoW Forever: fallback Quests tabs supplied by another
+    -- addon often only know how to close their *own* panel. If our browser is
+    -- active, their mouse-up can otherwise be a no-op and the player gets stuck
+    -- with both tabs highlighted. Restoring Blizzard's last real display mode
+    -- first gives every following tab click a clean, native starting state.
+    pcall(tab.HookScript, tab, "OnMouseDown", function(_, button)
+        if button == "LeftButton" and selectedIsOurs then
+            Browser:Hide(true)
+        end
+    end)
+end
+
+local tabAnchorName = nil
+local tabAnchorMode = "managed-chain"
+local function PlaceTab()
+    if not tabFrame then return false end
+    local qmf = _G.QuestMapFrame
+    if not qmf then return false end
+
+    local lowest, lowestBottom
+    for _, child in ipairs(GetVisibleQuestStyleSideTabs(qmf)) do
+        HookExternalTab(child)
     end
+    for _, child in ipairs(GetVisibleManagedSideTabs(qmf)) do
+        local bottom = child:GetBottom()
+        if bottom and (not lowestBottom or bottom < lowestBottom) then
+            lowest, lowestBottom = child, bottom
+        end
+    end
+
+    -- If another addon already drew a generic fallback side-tab (for example a
+    -- Quests return tab on Forever), never create a duplicate one. We only use
+    -- it as a visual stack anchor; its click is handled by the generic handoff
+    -- hook above and Blizzard still owns the actual quest display mode.
+    local passiveLowest, passiveLowestBottom
+    if not lowest then
+        for _, child in ipairs(GetVisibleQuestStyleSideTabs(qmf)) do
+            if child.displayMode == nil then
+                local bottom = child:GetBottom()
+                if bottom and (not passiveLowestBottom or bottom < passiveLowestBottom) then
+                    passiveLowest, passiveLowestBottom = child, bottom
+                end
+            end
+        end
+    end
+
+    tabFrame:ClearAllPoints()
+    if backTab and (lowest or passiveLowest) then backTab:Hide() end
+    if lowest then
+        tabFrame:SetPoint("TOPLEFT", lowest, "BOTTOMLEFT", 0, TAB_GAP)
+        tabAnchorMode = "managed-chain"
+        tabAnchorName = lowest.GetName and lowest:GetName() or "anonymous"
+    elseif passiveLowest then
+        tabFrame:SetPoint("TOPLEFT", passiveLowest, "BOTTOMLEFT", 0, TAB_GAP)
+        tabAnchorMode = "passive-side-tab"
+        tabAnchorName = passiveLowest.GetName and (passiveLowest:GetName() or "anonymous") or "anonymous"
+    elseif qmf.QuestsTab and not qmf.QuestsTab:IsShown() then
+        backTab = backTab or CreateBackTab(qmf)
+        backTab:ClearAllPoints()
+        backTab:SetPoint("TOPLEFT", qmf, "TOPRIGHT", -9, -28)
+        backTab:Show()
+        tabFrame:SetPoint("TOPLEFT", backTab, "BOTTOMLEFT", 0, TAB_GAP)
+        tabAnchorMode = "fallback-quest-tab"
+        tabAnchorName = backTab:GetName() or "ForeverInstancesMapQuestsTab"
+    elseif qmf.MapLegendTab then
+        tabFrame:SetPoint("TOPLEFT", qmf.MapLegendTab, "BOTTOMLEFT", 0, TAB_GAP)
+        tabAnchorMode = "stock-maplegend"
+        tabAnchorName = qmf.MapLegendTab:GetName() or "MapLegendTab"
+    else
+        tabFrame:SetPoint("LEFT", qmf, "RIGHT", 0, 0)
+        tabAnchorMode = "frame-edge"
+        tabAnchorName = qmf:GetName() or "QuestMapFrame"
+    end
+
+    tabFrame:Show()
+    return true
+end
+
+function Browser:PlaceTab()
+    return PlaceTab()
+end
+
+local function GetFrameRect(frame)
+    if not frame then return nil end
+    local left, right, top, bottom = frame:GetLeft(), frame:GetRight(), frame:GetTop(), frame:GetBottom()
+    if not left or not right or not top or not bottom then return nil end
+    return { left = left, right = right, top = top, bottom = bottom }
+end
+
+local function RectsOverlap(a, b, padding)
+    padding = tonumber(padding) or 1
+    if not a or not b then return false end
+    return a.left < b.right - padding and a.right > b.left + padding
+       and a.bottom < b.top - padding and a.top > b.bottom + padding
 end
 
 function Browser:GetTabCollisionCount()
     local qmf = _G.QuestMapFrame
     if not qmf or not tabFrame or not tabFrame:IsShown() then return 0 end
-    local l1, r1, t1, b1 = tabFrame:GetLeft(), tabFrame:GetRight(), tabFrame:GetTop(), tabFrame:GetBottom()
-    if not l1 or not r1 or not t1 or not b1 then return 0 end
+    local ours = GetFrameRect(tabFrame)
+    if not ours then return 0 end
     local count = 0
-    for _, other in ipairs(CollectSideTabs(qmf)) do
-        if other ~= tabFrame then
-            local l2, r2, t2, b2 = other:GetLeft(), other:GetRight(), other:GetTop(), other:GetBottom()
-            if l2 and r2 and t2 and b2 then
-                local horizontal = l1 < r2 - 1 and r1 > l2 + 1
-                local vertical = b1 < t2 - 1 and t1 > b2 + 1
-                if horizontal and vertical then count = count + 1 end
-            end
-        end
+    for _, other in ipairs(GetVisibleManagedSideTabs(qmf)) do
+        if RectsOverlap(ours, GetFrameRect(other), 1) then count = count + 1 end
     end
+    if backTab and backTab:IsShown() and RectsOverlap(ours, GetFrameRect(backTab), 1) then count = count + 1 end
     return count
 end
 
-local layoutPending = false
-function Browser:ScheduleLayout()
-    if layoutPending then return end
-    layoutPending = true
-    local function run()
-        layoutPending = false
-        Browser:PlaceTab()
-    end
-    if C_Timer and C_Timer.After then C_Timer.After(0, run) else run() end
-end
-
-function Browser:PlaceTab()
-    if not tabFrame then return false end
+function Browser:GetTabLayoutDebug()
     local qmf = _G.QuestMapFrame
-    if not qmf then return false end
-
-    local candidates = CollectSideTabs(qmf)
-    local lowest, lowestBottom
-    for _, candidate in ipairs(candidates) do
-        HookForeignTab(candidate)
-        local bottom = candidate:GetBottom()
-        if bottom and (not lowestBottom or bottom < lowestBottom) then
-            lowest, lowestBottom = candidate, bottom
-        end
+    local result = { candidates = {}, collisions = 0, anchorMode = tabAnchorMode, anchorName = tabAnchorName }
+    if not qmf then return result end
+    local ours = tabFrame and GetFrameRect(tabFrame) or nil
+    for _, other in ipairs(GetVisibleManagedSideTabs(qmf)) do
+        local rect = GetFrameRect(other)
+        result.candidates[#result.candidates + 1] = {
+            name = other.GetName and (other:GetName() or "anonymous") or "anonymous",
+            displayMode = tostring(other.displayMode),
+            left = rect and rect.left or nil, right = rect and rect.right or nil,
+            top = rect and rect.top or nil, bottom = rect and rect.bottom or nil,
+        }
+        if ours and RectsOverlap(ours, rect, 1) then result.collisions = result.collisions + 1 end
     end
-
-    tabFrame:ClearAllPoints()
-    if lowest then
-        tabFrame:SetPoint("TOPLEFT", lowest, "BOTTOMLEFT", 0, TAB_GAP)
-    elseif qmf.QuestsTab then
-        tabFrame:SetPoint("TOPLEFT", qmf.QuestsTab, "TOPLEFT", 0, 0)
-    else
-        tabFrame:SetPoint("TOPLEFT", qmf, "TOPRIGHT", 3, -28)
-    end
-    tabFrame:Show()
-    return true
+    result.ours = ours
+    return result
 end
 
 local lastSystemDisplayMode
+
+local function GetWorldMapTabsLibrary()
+    if type(_G.LibStub) ~= "function" then return nil end
+    local ok, lib = pcall(_G.LibStub, "LibWorldMapTabs", true)
+    if ok and type(lib) == "table" and type(lib.SetDisplayMode) == "function" then return lib end
+    return nil
+end
+
+local function HideNativeQuestMapContent(qmf)
+    if not qmf then return end
+    -- WoW Forever can re-show the quest content during the map's OnShow
+    -- sequence even after SetDisplayMode(nil).  Keep the detached surface
+    -- exclusive whenever our tab is selected.  These are ordinary content
+    -- frames, not protected MapCanvas pins or protected-action state.
+    if qmf.QuestsFrame and qmf.QuestsFrame.IsShown and qmf.QuestsFrame:IsShown() then qmf.QuestsFrame:Hide() end
+    if qmf.EventsFrame and qmf.EventsFrame.IsShown and qmf.EventsFrame:IsShown() then qmf.EventsFrame:Hide() end
+    if qmf.MapLegend and qmf.MapLegend.IsShown and qmf.MapLegend:IsShown() then qmf.MapLegend:Hide() end
+end
+
+local function DeactivateOtherMapContents(qmf)
+    if not qmf then return end
+    if type(qmf.SetDisplayMode) == "function" then
+        local ok = pcall(qmf.SetDisplayMode, qmf)
+        if not ok then HideNativeQuestMapContent(qmf) end
+    else
+        HideNativeQuestMapContent(qmf)
+    end
+
+    -- Match the proven map-tab lifecycle used by EasyFind: third-party map
+    -- tab frameworks do not necessarily react to QuestMapFrame:nil, so use
+    -- their public shared-library API when it is present.  No foreign addon
+    -- names or frames are referenced.
+    local lib = GetWorldMapTabsLibrary()
+    if lib then pcall(lib.SetDisplayMode, lib, nil) end
+
+    -- While our browser is actively selected, keep the native content frames off.
+    HideNativeQuestMapContent(qmf)
+end
+
+local function InstallExternalModeHook()
+    local lib = GetWorldMapTabsLibrary()
+    if not lib or worldMapTabsHookedLibrary == lib then return end
+    worldMapTabsHookedLibrary = lib
+    if type(hooksecurefunc) == "function" then
+        hooksecurefunc(lib, "SetDisplayMode", function(_, displayMode)
+            if displayMode ~= nil then
+                if selectedIsOurs then Browser:Hide(false) end
+            end
+        end)
+    end
+end
+
 local function InstallSystemModeHook(qmf)
     if not qmf or systemModeHooks[qmf] then return end
     systemModeHooks[qmf] = true
@@ -831,11 +1078,19 @@ local function InstallSystemModeHook(qmf)
         hooksecurefunc(qmf, "SetDisplayMode", function(_, displayMode)
             if displayMode ~= nil then
                 lastSystemDisplayMode = displayMode
-                if not restoringBlizzardDisplayMode then lastSelectedWasOurs = false end
                 if selectedIsOurs then Browser:Hide(false) end
             end
         end)
     end
+end
+
+function Browser:EnsureExclusivePanel()
+    if not selectedIsOurs or not panel or not panel.outer or not panel.outer:IsShown() then return false end
+    local qmf = _G.QuestMapFrame
+    if not qmf then return false end
+    DeactivateOtherMapContents(qmf)
+    panel.outer:Show()
+    return true
 end
 
 function Browser:Show()
@@ -846,25 +1101,15 @@ function Browser:Show()
     if panel.MeasureBlizzardSearch then panel.MeasureBlizzardSearch() end
 
     selectedIsOurs = true
-    lastSelectedWasOurs = true
     prevBlizzardDisplayMode = qmf.displayMode or lastSystemDisplayMode
 
-    if qmf.SetDisplayMode then
-        -- If another detached panel currently owns the nil display mode, briefly
-        -- return to the last stock mode first. This gives any cooperating addon a
-        -- normal Blizzard mode transition to close itself without naming or
-        -- depending on that addon.
-        if qmf.displayMode == nil and lastSystemDisplayMode ~= nil then
-            pcall(qmf.SetDisplayMode, qmf, lastSystemDisplayMode)
-        end
-        pcall(qmf.SetDisplayMode, qmf)
-    end
+    DeactivateOtherMapContents(qmf)
 
     panel.outer:Show()
     self:SyncPanelGeometry()
     self:RefreshList()
     RefreshSelectGlows()
-    self:PlaceTab()
+    PlaceTab()
     return true
 end
 
@@ -876,7 +1121,7 @@ function Browser:Hide(restoreBlizzardMode)
 
     local qmf = _G.QuestMapFrame
     if wasSelected and restoreBlizzardMode and qmf and qmf.SetDisplayMode and qmf.displayMode == nil then
-        local restore = prevBlizzardDisplayMode or lastSystemDisplayMode or (qmf.QuestsTab and qmf.QuestsTab.displayMode)
+        local restore = prevBlizzardDisplayMode or lastSystemDisplayMode or (qmf.QuestsTab and qmf.QuestsTab.displayMode) or qmf.QuestsFrame
         if restore then
             restoringBlizzardDisplayMode = true
             pcall(qmf.SetDisplayMode, qmf, restore)
@@ -887,18 +1132,16 @@ function Browser:Hide(restoreBlizzardMode)
     RefreshSelectGlows()
 end
 
-local layoutWatcher
-local function InstallLayoutWatcher()
-    if layoutWatcher then return end
-    layoutWatcher = CreateFrame("Frame")
-    local elapsed = 0
-    layoutWatcher:SetScript("OnUpdate", function(_, dt)
-        if not _G.WorldMapFrame or not WorldMapFrame:IsShown() then return end
-        elapsed = elapsed + dt
-        if elapsed < 0.40 then return end
-        elapsed = 0
-        Browser:PlaceTab()
-    end)
+local layoutPending = false
+function Browser:ScheduleLayout(delay)
+    if layoutPending then return end
+    layoutPending = true
+    local function run()
+        layoutPending = false
+        PlaceTab()
+    end
+    delay = tonumber(delay) or 0
+    if C_Timer and C_Timer.After then C_Timer.After(delay, run) else run() end
 end
 
 function Browser:Initialize()
@@ -909,32 +1152,43 @@ function Browser:Initialize()
     if not tabFrame or not panel then return false end
 
     InstallSystemModeHook(qmf)
-    InstallLayoutWatcher()
-    self:PlaceTab()
+    InstallExternalModeHook()
+    PlaceTab()
     self:SyncPanelGeometry()
     self:RefreshList()
 
     if not initialized then
         initialized = true
+
+        -- Do not make the addon tab sticky across World Map close/reopen.
+        -- Blizzard owns the map-open lifecycle and decides which native mode
+        -- is shown when the map opens. Our browser is user-selected only:
+        -- clicking its side tab opens it; closing/maximizing the map restores
+        -- the previously active Blizzard mode and clears our selection.
         if _G.WorldMapFrame then
             WorldMapFrame:HookScript("OnShow", function()
-                Browser:ScheduleLayout()
-                if C_Timer and C_Timer.After then
-                    C_Timer.After(0, function()
-                        Browser:PlaceTab()
-                        if panel and panel.MeasureBlizzardSearch then panel.MeasureBlizzardSearch() end
-                        if lastSelectedWasOurs and panel and not (WorldMapFrame.IsMaximized and WorldMapFrame:IsMaximized()) then Browser:Show() end
-                    end)
+                PlaceTab()
+                if panel and panel.MeasureBlizzardSearch then panel.MeasureBlizzardSearch() end
+                Browser:ScheduleLayout(0)
+            end)
+
+            WorldMapFrame:HookScript("OnHide", function()
+                if selectedIsOurs then
+                    Browser:Hide(true)
                 end
             end)
-            WorldMapFrame:HookScript("OnHide", function()
-                if selectedIsOurs then lastSelectedWasOurs = true; Browser:Hide(true) end
-            end)
+
             if WorldMapFrame.IsMaximized and type(hooksecurefunc) == "function" then
                 local function UpdateVisibility()
                     if not tabFrame then return end
-                    if WorldMapFrame:IsMaximized() then Browser:Hide(true); tabFrame:Hide()
-                    else tabFrame:Show(); Browser:ScheduleLayout() end
+                    if WorldMapFrame:IsMaximized() then
+                        if selectedIsOurs then Browser:Hide(true) end
+                        tabFrame:Hide()
+                    else
+                        tabFrame:Show()
+                        PlaceTab()
+                        Browser:ScheduleLayout(0)
+                    end
                 end
                 hooksecurefunc(WorldMapFrame, "Maximize", UpdateVisibility)
                 hooksecurefunc(WorldMapFrame, "Minimize", UpdateVisibility)
@@ -958,15 +1212,22 @@ function Browser:GetDebugState()
     if qmf and type(qmf.ContentFrames) == "table" and panel and panel.outer then
         for _, value in ipairs(qmf.ContentFrames) do if value == panel.outer then contentArrayTouched = true break end end
     end
-    local foreignCount = 0
-    if qmf then foreignCount = #CollectSideTabs(qmf) end
+    local managedCount = qmf and #GetVisibleManagedSideTabs(qmf) or 0
+    local questStyleCount, passiveCount, hookedCount = 0, 0, 0
+    if qmf then
+        local allSideTabs = GetVisibleQuestStyleSideTabs(qmf)
+        questStyleCount = #allSideTabs
+        for _, sideTab in ipairs(allSideTabs) do
+            if sideTab.displayMode == nil then passiveCount = passiveCount + 1 end
+            if externalTabHooks[sideTab] then hookedCount = hookedCount + 1 end
+        end
+    end
     return {
         initialized = initialized,
         safeDetached = not tabArrayTouched and not contentArrayTouched,
         blizzardTabArrayTouched = tabArrayTouched,
         blizzardContentArrayTouched = contentArrayTouched,
-        nativeTabTemplate = tabFrame and tabFrame._fiNativeTemplate == true,
-        nativeScrollTemplate = panel and panel.scrollFrame and panel.scrollFrame._fiNativeTemplate == true,
+        questStyleTab = tabFrame and tabFrame._fiQuestStyleTab == true,
         panelExists = panel ~= nil,
         shown = self:IsShown(),
         tabChecked = selectedIsOurs,
@@ -978,8 +1239,20 @@ function Browser:GetDebugState()
         activePinName = activePinTarget and activePinTarget.name or nil,
         activePinMapID = activePinTarget and activePinTarget.mapID or nil,
         markerShown = false,
-        sideTabsDetected = foreignCount,
+        sideTabsDetected = managedCount,
+        questStyleSideTabsDetected = questStyleCount,
+        passiveSideTabsDetected = passiveCount,
+        externalTabHandoffHooks = hookedCount,
         tabCollisions = self:GetTabCollisionCount(),
+        tabDisplayMode = tabFrame and tabFrame.displayMode or nil,
+        tabAnchorMode = tabAnchorMode,
+        tabAnchorName = tabAnchorName,
+        usesBlizzardDungeonAtlas = tabFrame and tabFrame._fiUsesBlizzardDungeonAtlas == true or false,
+        manualQuestScroll = panel and panel.scrollFrame ~= nil and panel.scrollBar ~= nil,
+        nativeQuestsShown = qmf and qmf.QuestsFrame and qmf.QuestsFrame:IsShown() or false,
+        nativeEventsShown = qmf and qmf.EventsFrame and qmf.EventsFrame:IsShown() or false,
+        nativeLegendShown = qmf and qmf.MapLegend and qmf.MapLegend:IsShown() or false,
+        externalTabLibrary = GetWorldMapTabsLibrary() ~= nil,
     }
 end
 
@@ -1012,15 +1285,19 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
-    if event == "ADDON_LOADED" and arg1 ~= addonName and not initialized then return end
+    if event == "ADDON_LOADED" and arg1 ~= addonName and arg1 ~= "Blizzard_WorldMap" and initialized then
+        -- A newly loaded addon may add another map tab.  We never inspect its
+        -- name; simply re-run the same direct-child layout after it loads.
+    end
 
     local function RefreshIntegration()
         Browser:Initialize()
-        Browser:PlaceTab()
+        PlaceTab()
     end
     if C_Timer and type(C_Timer.After) == "function" then
         C_Timer.After(0, RefreshIntegration)
-        C_Timer.After(0.15, RefreshIntegration)
+        C_Timer.After(0.12, RefreshIntegration)
+        C_Timer.After(0.40, RefreshIntegration)
     else
         RefreshIntegration()
     end

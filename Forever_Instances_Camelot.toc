@@ -2,7 +2,7 @@
 ## Title: Forever Instances — Dungeon & Raid Pins for HandyNotes
 ## Notes: Dungeon and raid locations for World of Warcraft: Forever.
 ## Notes-ukUA: Локації підземель і рейдів у World of Warcraft: Forever.
-## Version: v1.0.20
+## Version: v1.0.26
 ## Author: Forever adaptation based on Callie's HandyNotes_DungeonLocations (Classic)
 ## RequiredDeps: HandyNotes
 ## OptionalDeps: TomTom, Atlas

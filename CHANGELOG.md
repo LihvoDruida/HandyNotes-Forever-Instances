@@ -1,5 +1,76 @@
 # Changelog
 
+## [1.0.26] - 2026-10-01
+
+### 🐛 Bug Fixes
+- Fix the World Map tab handoff where Forever Instances and an external fallback Quests tab could both remain visually selected at the same time.
+- Hook every visible Blizzard-style direct side tab on mouse-down and restore the last native QuestMapFrame display mode before the destination tab handles its own click. This prevents a fallback Quests tab from becoming a no-op while Forever Instances is active.
+- Detect fallback side tabs generically from Blizzard `QuestLog-tab-side` chrome; no addon names or foreign frame names are hard-coded.
+- Temporarily suppress the selected glow of passive fallback tabs while Forever Instances is active and restore their original glow state when leaving the browser.
+- Reuse an already-present fallback side tab as the stack anchor instead of creating a duplicate Quests return tab.
+- Keep the detached/taint-safe architecture: no writes to Blizzard `TabButtons` / `ContentFrames` and no MapCanvas pin ownership.
+
+### 🧪 Diagnostics
+- Expose total Blizzard-style side tabs, passive fallback tabs, and installed handoff hooks in `/fitest` debug state.
+
+## [1.0.25] - 2026-10-01
+
+### 🐛 Bug Fixes
+- Restore Blizzard ownership of the World Map open lifecycle: closing the map while Forever Instances is selected no longer makes the addon tab reopen automatically next time.
+- Remove the immediate, next-frame, and delayed browser reactivation passes that overrode the game's intended quest/event/legend mode on map open.
+- When the map closes or is maximized, restore the native display mode only to clean up the temporary `SetDisplayMode(nil)` state, then clear the addon selection.
+- Keep Forever Instances user-driven: the browser opens only after an explicit click on its side tab (or an explicit addon action), never because the World Map was reopened.
+- Preserve native Blizzard map behavior on subsequent opens while keeping the detached/taint-safe browser architecture.
+
+### 🧪 Diagnostics
+- Replace the old sticky-browser reopen assertion with `Blizzard default map reopen lifecycle`, which verifies that the browser is closed, its tab is unselected, a native display mode is restored, and native map content is visible after reopening.
+
+## [1.0.24] - 2026-10-01
+
+### 🐛 Bug Fixes
+- Fix the World Map close/reopen regression where the Forever Instances browser restored while Blizzard's quest list was also visible underneath it.
+- Match the supplied working map-tab lifecycle more closely: restore the selected addon surface immediately on `WorldMapFrame:OnShow`, repeat once on the next frame, and perform one bounded late exclusivity pass for Forever's delayed quest-panel restoration.
+- When the browser is selected, explicitly keep Blizzard `QuestsFrame`, `EventsFrame`, and `MapLegend` content hidden after display-mode changes so only one sidebar surface can be visible.
+- Synchronize with `LibWorldMapTabs` through its public `SetDisplayMode(nil)` API when the library is present, without depending on any named addon or foreign frame.
+- Hook the shared tab manager's display-mode changes so selecting another managed map tab cleanly closes the Forever Instances browser.
+- Preserve the detached/taint-safe architecture: no writes to Blizzard `TabButtons` / `ContentFrames`, no addon-owned MapCanvas pin, and no direct `WorldMapFrame:SetMapID()`.
+
+### 🧪 Diagnostics
+- Extend `/fitest` with a real `WorldMapFrame` hide/show cycle that reproduces the reported bug and verifies that the browser restores with Blizzard quest/event/legend content fully hidden.
+- Expose native sidebar visibility and shared-tab-manager presence in the diagnostic state.
+
+## [1.0.23] - 2026-10-01
+
+- Replaced the v1.0.22 `LargeSideTabButtonTemplate` experiment with the same proven frame construction used by the supplied map-search reference: a plain `QuestMapFrame` sibling with Blizzard `QuestLog-tab-side`, selected-glow, hover-glow, and stock 42/55-style geometry.
+- Keep the Forever Instances tab out of the foreign `displayMode` chain on purpose. This prevents two independently managed addons from anchoring to each other and creating circular anchors or large vertical jumps.
+- Discover only visible direct `QuestMapFrame` children that already participate in the established `displayMode` tab chain, then place Forever Instances after the lowest settled tab with the stock `-3 px` gap.
+- Restore the working fallback Quests side-tab for Forever clients where Blizzard keeps its own quest side tabs hidden.
+- Rebuild the browser panel using the proven quest-log layout: `ContentsAnchor`, 29 px search strip, 22 px right inset, `QuestLog-main-background`, `QuestLogBorderFrameTemplate`, a plain scroll frame, and `MinimalScrollBar`.
+- Use Blizzard's `Dungeon`/`Raid` atlases for browser glyphs with local textures only as fallback.
+- Remove hard-coded integration with named third-party addons; foreign tab switching is detected through the common direct-child/display-mode behavior only.
+- Preserve the detached/taint-safe panel, no `TabButtons`/`ContentFrames` mutation, and the single canonical `Database.lua -> mapID/x/y` coordinate source.
+- Update `/fitest` to verify the quest-style panel geometry, manual scrollbar, no own `displayMode`, stable foreign-tab chain, and zero side-tab collisions.
+
+## [1.0.22] - 2026-10-01
+
+- Rebuilt the world-map side tab around Blizzard's own `LargeSideTabButtonTemplate` and `SidePanelTabButtonMixin` behavior instead of custom tab artwork or recursive geometry heuristics.
+- The browser tab now uses Blizzard's built-in `Dungeon` atlas for both active and inactive states and the template's native checked/selected/hover/press handling.
+- Replaced recursive map-tree scanning with a strict direct-sibling tab chain: only side-tab-sized frames directly parented to `QuestMapFrame` can participate in placement.
+- Anchor the Forever Instances tab exactly like Blizzard chains `EventsTab` and `MapLegendTab`: `TOP` to the previous tab's `BOTTOM` with the stock `-3 px` gap.
+- Removed the continuous 0.30 s layout watcher and collision-retry drift that could attach the tab to unrelated map controls and push it into the map border.
+- Keep compatibility with other properly implemented map tabs by detecting only direct QuestMapFrame side-tab siblings and re-evaluating the chain on map show, sibling show/hide, and addon load.
+- Switch browser dungeon/raid row glyphs to Blizzard's native `Dungeon` / `Raid` atlases with local textures retained only as a compatibility fallback.
+- Preserve the taint-safe detached content panel and the single canonical `Database.lua -> mapID/x/y` location source.
+
+## [1.0.21] - 2026-10-01
+
+- Fixed side-tab stacking races that could visually merge the Forever Instances icon with another quest/map tab.
+- The addon tab now stays hidden until a deferred layout pass resolves the current map-tab stack.
+- Side-tab discovery now scans native tab arrays read-only plus nested map-frame children by geometry and Blizzard side-tab chrome, without addon-name dependencies.
+- Added immediate child-count change detection so tabs created later by other addons trigger a safe reflow.
+- Added collision retry/verification and richer `/fitest` tab-layout diagnostics.
+- Kept the browser detached from Blizzard `TabButtons` / `ContentFrames` and preserved the single canonical coordinate source.
+
 ## [1.0.20] - 2026-10-01
 
 ### 🛠️ UI / UX

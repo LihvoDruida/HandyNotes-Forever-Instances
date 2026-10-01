@@ -8,18 +8,12 @@ manual-changelog:
 
 ignore:
   - README.md
-  - CURSEFORGE_TEXTS.md
-  - VALIDATION.md
-  - COORDINATE_AUDIT.md
-  - ATLAS_AUDIT.md
-  - CONTENT_CLASSIFICATION_AUDIT.md
   - .git
   - .github
   - .gitignore
   - .release
   - release.sh
   - check_all.sh
-  - RELEASING.md
   - cliff.toml
   - tools
   - curseforge-icon.png
